@@ -146,31 +146,38 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
         val messages = folder.getMessages(messageNumberStart, messageNumberEnd)
         log.info("Retrieved ${messages.size} Messages")
 
-        val mails = messages.map { message ->
-            val mail = Email(message.from.joinToString { it.toString() }, message.subject ?: "", message.receivedDate)
-
-            (message as? IMAPMessage)?.let { imapMessage ->
-                if (options.retrieveMessageIds) {
-                    mail.messageId = (folder as? IMAPFolder)?.getUID(message) // this again needs a network request
-                }
-
-                if (options.retrieveAttachmentNames && options.retrievePlainTextBodies == false
-                    && options.retrieveHtmlBodies == false) { // we cannot load bodies but body infos from BODYSTRUCTURE
-
-                    setBodyInfoAndAttachmentsFromBodyStructure(imapMessage, mail)
-                }
-            }
-
-            if (options.retrievePlainTextBodies || options.retrieveHtmlBodies) { // bodies can be loaded from message or multipart content
-                setBodyAndAttachmentsFromMessageContent(options, message, mail)
-            }
-
-            mail
+        return messages.map { message ->
+            mapEmail(folder, options, message)
         }
-        return mails
     }
 
-    private fun setBodyInfoAndAttachmentsFromBodyStructure(message: IMAPMessage, mail: Email) {
+    protected open fun mapEmail(folder: Folder, options: FetchEmailOptions, message: Message): Email {
+        val mail = Email(message.from.joinToString { it.toString() }, message.subject ?: "", message.receivedDate)
+
+        setEmailBody(folder, options, message, mail)
+
+        return mail
+    }
+
+    protected open fun setEmailBody(folder: Folder, options: FetchEmailOptions, message: Message, mail: Email) {
+        (message as? IMAPMessage)?.let { imapMessage ->
+            if (options.retrieveMessageIds) {
+                mail.messageId = (folder as? IMAPFolder)?.getUID(message) // this again needs a network request
+            }
+
+            if (options.retrieveAttachmentNames && options.retrievePlainTextBodies == false
+                && options.retrieveHtmlBodies == false) { // we cannot load bodies but body infos from BODYSTRUCTURE
+
+                setBodyInfoAndAttachmentsFromBodyStructure(imapMessage, mail)
+            }
+        }
+
+        if (options.retrievePlainTextBodies || options.retrieveHtmlBodies) { // bodies can be loaded from message or multipart content
+            setBodyAndAttachmentsFromMessageContent(options, message, mail)
+        }
+    }
+
+    protected open fun setBodyInfoAndAttachmentsFromBodyStructure(message: IMAPMessage, mail: Email) {
         val contentType = message.contentType // to load body structure
 
         try {
