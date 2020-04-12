@@ -3,10 +3,14 @@ package net.dankito.accounting.service.email
 import com.sun.mail.imap.IMAPFolder
 import com.sun.mail.imap.IMAPMessage
 import com.sun.mail.imap.protocol.BODYSTRUCTURE
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import net.dankito.accounting.data.model.email.*
 import net.dankito.utils.IThreadPool
 import org.slf4j.LoggerFactory
 import java.util.*
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.mail.Folder
 import javax.mail.Message
 import javax.mail.Session
@@ -146,9 +150,21 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
         val messages = folder.getMessages(messageNumberStart, messageNumberEnd)
         log.info("Retrieved ${messages.size} Messages")
 
-        return messages.map { message ->
-            mapEmail(folder, options, message)
+        val mappedEmails = CopyOnWriteArrayList<Email>()
+
+        runBlocking {
+            messages.forEach{ message ->
+                async(Dispatchers.IO) {
+                    try {
+                        mappedEmails.add(mapEmail(folder, options, message))
+                    } catch (e: Exception) {
+                        log.error("Could not map message $message to Email", e)
+                    }
+                }
+            }
         }
+
+        return mappedEmails.sortedBy { it.receivedDate }
     }
 
     protected open fun mapEmail(folder: Folder, options: FetchEmailOptions, message: Message): Email {
