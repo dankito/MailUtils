@@ -131,7 +131,7 @@ class EmailFetcherTest {
             countDownLatch.countDown()
         }
 
-        try { countDownLatch.await(60, TimeUnit.SECONDS) } catch (ignored: Exception) { }
+        try { countDownLatch.await(3, TimeUnit.MINUTES) } catch (ignored: Exception) { }
 
 
         // then
