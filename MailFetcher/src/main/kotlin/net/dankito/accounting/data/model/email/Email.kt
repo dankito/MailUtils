@@ -6,13 +6,17 @@ import java.util.*
 
 class Email(val sender: String,
             val subject: String,
-            val receivedDate: Date
+            val receivedDate: Date,
+            val sentDate: Date? = null
 ) {
 
     private val attachmentsField = mutableListOf<Attachment>()
 
 
     var messageId: Long? = null
+
+
+    var size: Long? = null
 
 
     var plainTextBodyInfo: EmailBodyInfo? = null
