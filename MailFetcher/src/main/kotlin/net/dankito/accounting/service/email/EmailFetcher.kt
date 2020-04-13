@@ -236,18 +236,23 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
 
     protected open fun setBodyAndAttachmentsFromMultiPartContent(options: FetchEmailOptions, mail: Email, multipart: MimeMultipart) {
         for (i in 0..multipart.count - 1) {
-            val part = multipart.getBodyPart(i)
+            val bodyPart = multipart.getBodyPart(i)
 
-            if (part.contentType.contains("text/", true)) {
-                setTextBody(options, mail, part.contentType, part.content.toString())
+            val isAttachment = Part.ATTACHMENT.equals(bodyPart.disposition, true)
+
+            if (isAttachment == false && bodyPart.contentType.contains("text/", true)) {
+                if (options.retrievePlainTextBodies || options.retrieveHtmlBodies) {
+                    setTextBody(options, mail, bodyPart.contentType, bodyPart.content.toString())
+                }
             }
-            else if (part.contentType.contains("multipart", true)) {
-                (part.content as? MimeMultipart)?.let { partMultipartContent ->
+            else if (bodyPart.contentType.contains("multipart", true)) {
+                (bodyPart.content as? MimeMultipart)?.let { partMultipartContent ->
                     setBodyAndAttachmentsFromMultiPartContent(options, mail, partMultipartContent)
                 }
             }
             else if (options.retrieveAttachmentNames) {
-                var mimeType = part.contentType
+                val fileName = bodyPart.fileName ?: "Attachment_${i + 1}"
+                var mimeType = bodyPart.contentType
                 val indexOfSemicolon = mimeType.indexOf(';')
                 if (indexOfSemicolon > 0) {
                     mimeType = mimeType.substring(0, indexOfSemicolon)
@@ -255,7 +260,7 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
 
                 mail.addAttachment(Attachment(part.fileName ?: "", part.size, mimeType))
 
-                if (part.fileName.isNullOrEmpty()) {
+                if (bodyPart.fileName.isNullOrEmpty()) {
                     log.info("part.fileName is null or empty for mail $mail")
                 }
             }
