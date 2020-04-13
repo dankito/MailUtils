@@ -7,9 +7,7 @@ import net.dankito.accounting.data.model.email.*
 import net.dankito.utils.IThreadPool
 import org.slf4j.LoggerFactory
 import java.util.*
-import javax.mail.Folder
-import javax.mail.Message
-import javax.mail.Session
+import javax.mail.*
 import javax.mail.internet.MimeMessage
 import javax.mail.internet.MimeMultipart
 
@@ -173,19 +171,19 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
                 mail.messageId = (folder as? IMAPFolder)?.getUID(message) // this again needs a network request
             }
 
-            if (options.retrieveAttachmentNames && options.retrievePlainTextBodies == false
+            if (options.retrieveAttachmentInfos && options.retrievePlainTextBodies == false
                 && options.retrieveHtmlBodies == false) { // we cannot load bodies but body infos from BODYSTRUCTURE
 
-                setBodyInfoAndAttachmentsFromBodyStructure(imapMessage, mail)
+                setBodyInfoAndAttachmentInfoFromBodyStructure(imapMessage, mail)
             }
         }
 
-        if (options.retrievePlainTextBodies || options.retrieveHtmlBodies) { // bodies can be loaded from message or multipart content
+        if (options.retrievePlainTextBodies || options.retrieveHtmlBodies || options.downloadAttachments) { // bodies can be loaded from message or multipart content
             setBodyAndAttachmentsFromMessageContent(options, message, mail)
         }
     }
 
-    protected open fun setBodyInfoAndAttachmentsFromBodyStructure(message: IMAPMessage, mail: Email) {
+    protected open fun setBodyInfoAndAttachmentInfoFromBodyStructure(message: IMAPMessage, mail: Email) {
         val contentType = message.contentType // to load body structure
 
         try {
@@ -193,17 +191,17 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
             bodyStructureField.isAccessible = true
 
             (bodyStructureField.get(message) as? BODYSTRUCTURE)?.let { bodyStructure ->
-                setBodyInfoAndAttachmentsFromBodyStructure(mail, bodyStructure)
+                setBodyInfoAndAttachmentInfoFromBodyStructure(mail, bodyStructure)
             }
         } catch (e: Exception) {
             log.error("Could not load message's body structure", e)
         }
     }
 
-    protected open fun setBodyInfoAndAttachmentsFromBodyStructure(mail: Email, bodyStructure: BODYSTRUCTURE) {
+    protected open fun setBodyInfoAndAttachmentInfoFromBodyStructure(mail: Email, bodyStructure: BODYSTRUCTURE) {
         when {
-            bodyStructure.bodies?.isNotEmpty() == true -> bodyStructure.bodies.forEach { setBodyInfoAndAttachmentsFromBodyStructure(mail, it) }
-            bodyStructure.disposition == "attachment" -> addAttachmentsFromBodyStructure(mail, bodyStructure)
+            bodyStructure.bodies?.isNotEmpty() == true -> bodyStructure.bodies.forEach { setBodyInfoAndAttachmentInfoFromBodyStructure(mail, it) }
+            bodyStructure.disposition == "attachment" -> addAttachmentInfoFromBodyStructure(mail, bodyStructure)
             bodyStructure.type == "text" -> setBodyInfoFromBodyStructure(mail, bodyStructure)
         }
     }
@@ -215,8 +213,8 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
         }
     }
 
-    protected open fun addAttachmentsFromBodyStructure(mail: Email, bodyStructure: BODYSTRUCTURE) {
-        mail.addAttachment(Attachment(bodyStructure.dParams["filename"] ?: "", bodyStructure.size, bodyStructure.type + "/" + bodyStructure.subtype))
+    protected open fun addAttachmentInfoFromBodyStructure(mail: Email, bodyStructure: BODYSTRUCTURE) {
+        mail.addAttachmentInfo(AttachmentInfo(bodyStructure.dParams["filename"] ?: "", bodyStructure.size, bodyStructure.type + "/" + bodyStructure.subtype))
     }
 
 
@@ -250,20 +248,32 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
                     setBodyAndAttachmentsFromMultiPartContent(options, mail, partMultipartContent)
                 }
             }
-            else if (options.retrieveAttachmentNames) {
-                val fileName = bodyPart.fileName ?: "Attachment_${i + 1}"
-                var mimeType = bodyPart.contentType
-                val indexOfSemicolon = mimeType.indexOf(';')
-                if (indexOfSemicolon > 0) {
-                    mimeType = mimeType.substring(0, indexOfSemicolon)
-                }
-
-                mail.addAttachment(Attachment(part.fileName ?: "", part.size, mimeType))
-
-                if (bodyPart.fileName.isNullOrEmpty()) {
-                    log.info("part.fileName is null or empty for mail $mail")
-                }
+            else if (options.retrieveAttachmentInfos || options.downloadAttachments) {
+                downloadAttachmentOrGetAttachmentInfo(bodyPart, i, options, mail)
             }
+        }
+    }
+
+    protected open fun downloadAttachmentOrGetAttachmentInfo(bodyPart: BodyPart, index: Int, options: FetchEmailOptions, mail: Email) {
+        val fileName = bodyPart.fileName ?: "Attachment_${index + 1}"
+
+        var mimeType = bodyPart.contentType
+        val indexOfSemicolon = mimeType.indexOf(';')
+        if (indexOfSemicolon > 0) {
+            mimeType = mimeType.substring(0, indexOfSemicolon) // TODO: try to keep charset?
+        }
+
+        if (options.retrieveAttachmentInfos) {
+            mail.addAttachmentInfo(AttachmentInfo(fileName, bodyPart.size, mimeType))
+        }
+        if (options.downloadAttachments) {
+            val content = bodyPart.inputStream.buffered().readBytes()
+
+            mail.addAttachment(Attachment(fileName, bodyPart.size, mimeType, content))
+        }
+
+        if (bodyPart.fileName.isNullOrEmpty()) {
+            log.info("part.fileName is null or empty for mail $mail")
         }
     }
 
