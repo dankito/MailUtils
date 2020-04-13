@@ -10,6 +10,7 @@ import java.util.*
 import javax.mail.Folder
 import javax.mail.Message
 import javax.mail.Session
+import javax.mail.internet.MimeMessage
 import javax.mail.internet.MimeMultipart
 
 
@@ -152,7 +153,14 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
     }
 
     protected open fun mapEmail(folder: Folder, options: FetchEmailOptions, message: Message): Email {
-        val mail = Email(message.from.joinToString { it.toString() }, message.subject ?: "", message.receivedDate)
+        val mail = Email(message.from.joinToString { it.toString() }, message.subject ?: "", message.receivedDate, message.sentDate)
+
+        (message as? IMAPMessage)?.let { imapMessage ->
+            mail.size = imapMessage.sizeLong
+        }
+        ?: (message as? MimeMessage)?.let { mimeMessage ->
+            mail.size = mimeMessage.size.toLong()
+        }
 
         setEmailBody(folder, options, message, mail)
 
