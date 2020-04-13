@@ -13,10 +13,20 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 
-@Disabled // don't run automatically, needs email credentials, see createFetchEmailOptions() at end of class
+@Disabled // don't run automatically, needs email credentials, see constants in companion object
 class EmailFetcherTest {
 
     companion object {
+        // set your email credentials here
+        private const val MailAccountUsername = ""
+
+        private const val MailAccountPassword = ""
+
+        private const val MailAccountImapUrl = ""
+
+        private const val MailAccountPort = 0
+
+
         private const val ChunkSize = 10
 
         private const val ShowJavaMailDebugLogOutput = false
@@ -238,7 +248,7 @@ class EmailFetcherTest {
                                         retrieveHtmlBodies: Boolean = false, retrieveAttachmentInfos: Boolean = false,
                                         downloadAttachments: Boolean = false, chunkSize: Int = -1): FetchEmailOptions {
 
-        val account = EmailAccount("", "", "", 0) // set your email credentials here
+        val account = EmailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
 
         return FetchEmailOptions(account, retrieveMessageIds, retrievePlainTextBodies, retrieveHtmlBodies,
             retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
