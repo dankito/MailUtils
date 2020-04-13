@@ -112,7 +112,7 @@ class EmailFetcherTest {
         retrievedMails.get().forEach { mail ->
             assertThat(mail.messageId).isNotNull()
             assertThat(mail.body).isNull()
-            assertThat(mail.attachments).isEmpty()
+            assertThat(mail.attachmentInfos).isEmpty()
         }
     }
 
@@ -144,12 +144,12 @@ class EmailFetcherTest {
         retrievedMails.get().forEach { mail ->
             assertThat(mail.messageId).isNull()
             assertThat(mail.body).isNotNull()
-            assertThat(mail.attachments).isEmpty()
+            assertThat(mail.attachmentInfos).isEmpty()
         }
     }
 
     @Test
-    fun fetchEmailAttachmentNames() {
+    fun fetchEmailAttachmentInfos() {
 
         // given
 
@@ -159,7 +159,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchEmailsAsync(createFetchEmailOptions(retrieveAttachmentNames = true)) {
+        underTest.fetchEmailsAsync(createFetchEmailOptions(retrieveAttachmentInfos = true)) {
             retrievedMails.set(it.emails)
 
             countDownLatch.countDown()
@@ -173,11 +173,13 @@ class EmailFetcherTest {
         assertThat(retrievedMails.get()).isNotNull
         assertThat(retrievedMails.get()).isNotEmpty
 
+        val allAttachmentInfos = retrievedMails.get().flatMap { it.attachmentInfos }
         val allAttachments = retrievedMails.get().flatMap { it.attachments }
 
-        assertThat(allAttachments).isNotEmpty
+        assertThat(allAttachmentInfos).isNotEmpty
+        assertThat(allAttachments).isEmpty()
 
-        allAttachments.forEach { attachment ->
+        allAttachmentInfos.forEach { attachment ->
             assertThat(attachment.mimeType).isNotEmpty()
             assertThat(attachment.size).isGreaterThan(0)
         }
@@ -188,15 +190,58 @@ class EmailFetcherTest {
         }
     }
 
+    @Test
+    fun downloadEmailAttachments() {
+
+        // given
+
+        val retrievedMails = AtomicReference<List<Email>>(null)
+        val countDownLatch = CountDownLatch(1)
+
+
+        // when
+
+        underTest.fetchEmailsAsync(createFetchEmailOptions(downloadAttachments = true)) {
+            retrievedMails.set(it.emails)
+
+            countDownLatch.countDown()
+        }
+
+        try { countDownLatch.await(60, TimeUnit.MINUTES) } catch (ignored: Exception) { } // TODO: undo
+
+
+        // then
+
+        assertThat(retrievedMails.get()).isNotNull
+        assertThat(retrievedMails.get()).isNotEmpty
+
+        val allAttachmentInfos = retrievedMails.get().flatMap { it.attachmentInfos }
+        val allAttachments = retrievedMails.get().flatMap { it.attachments }
+
+        assertThat(allAttachmentInfos).isEmpty()
+        assertThat(allAttachments).isNotEmpty
+
+        allAttachments.forEach { attachment ->
+            assertThat(attachment.mimeType).isNotEmpty()
+            assertThat(attachment.size).isGreaterThan(0)
+            assertThat(attachment.content).isNotEmpty()
+        }
+
+        retrievedMails.get().forEach { mail ->
+            assertThat(mail.messageId).isNull()
+            assertThat(mail.body).isNull()
+        }
+    }
+
 
     private fun createFetchEmailOptions(retrieveMessageIds: Boolean = false, retrievePlainTextBodies: Boolean = false,
-                                        retrieveHtmlBodies: Boolean = false, retrieveAttachmentNames: Boolean = false,
-                                        chunkSize: Int = -1): FetchEmailOptions {
+                                        retrieveHtmlBodies: Boolean = false, retrieveAttachmentInfos: Boolean = false,
+                                        downloadAttachments: Boolean = false, chunkSize: Int = -1): FetchEmailOptions {
 
         val account = EmailAccount("", "", "", 0) // set your email credentials here
 
         return FetchEmailOptions(account, retrieveMessageIds, retrievePlainTextBodies, retrieveHtmlBodies,
-            retrieveAttachmentNames, chunkSize, ShowJavaMailDebugLogOutput)
+            retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
     }
 
 }
