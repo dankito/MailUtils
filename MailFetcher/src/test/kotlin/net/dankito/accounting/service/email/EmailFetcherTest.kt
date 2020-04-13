@@ -5,15 +5,15 @@ import net.dankito.accounting.data.model.email.EmailAccount
 import net.dankito.accounting.data.model.email.FetchEmailOptions
 import net.dankito.utils.ThreadPool
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.Ignore
-import org.junit.Test
+import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 
-@Ignore // don't run automatically, needs email credentials, see createFetchEmailOptions() at end of class
+@Disabled // don't run automatically, needs email credentials, see createFetchEmailOptions() at end of class
 class EmailFetcherTest {
 
     companion object {

@@ -1,4 +1,5 @@
 buildscript {
+    apply from: 'versions.gradle'
 
     repositories {
         mavenCentral()
@@ -19,7 +20,4 @@ allprojects {
         jcenter()
         google()
     }
-
-    group 'net.dankito.mail'
-    version '1.0.0-SNAPSHOT'
 }

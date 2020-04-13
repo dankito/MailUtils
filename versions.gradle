@@ -1,0 +1,34 @@
+
+rootProject.group ="net.dankito.mail"
+rootProject.version = "1.0.0-SNAPSHOT"
+
+ext {
+    sourceCodeRepositoryBaseUrl = "<TODO>"
+    projectDescription = "<TODO>"
+
+    // most projects are under Apache license ...
+    licenseName = "The Apache License, Version 2.0"
+    licenseUrl = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+    
+
+    kotlinVersion = '1.3.71'
+    kotlinCoroutinesVersion = '1.3.5'
+
+
+    javaxMailVersion = "1.6.2"
+
+    
+    javaUtilsVersion = '1.0.15'
+    
+    
+    /*  Test    */    
+
+    junit5Version = '5.5.2'
+
+    assertJVersion = '3.14.0'
+
+    mockitoVersion = '2.22.0'
+
+    logbackVersion = '1.2.3'
+    
+}
