@@ -18,6 +18,8 @@ class EmailFetcherTest {
 
     companion object {
         private const val ChunkSize = 10
+
+        private const val ShowJavaMailDebugLogOutput = false
     }
 
 
@@ -194,7 +196,7 @@ class EmailFetcherTest {
         val account = EmailAccount("", "", "", 0) // set your email credentials here
 
         return FetchEmailOptions(account, retrieveMessageIds, retrievePlainTextBodies, retrieveHtmlBodies,
-            retrieveAttachmentNames, chunkSize, false)
+            retrieveAttachmentNames, chunkSize, ShowJavaMailDebugLogOutput)
     }
 
 }
