@@ -1,10 +1,6 @@
 package net.dankito.accounting.data.model.email
 
 
-class Attachment(val name: String, val size: Int, val mimeType: String) {
-
-    override fun toString(): String {
-        return "$name ($mimeType)"
-    }
-
+open class Attachment(name: String, size: Int, mimeType: String, val content: ByteArray)
+    : AttachmentInfo(name, size, mimeType) {
 }

@@ -6,7 +6,8 @@ class FetchEmailOptions(
     val retrieveMessageIds: Boolean,
     val retrievePlainTextBodies: Boolean,
     val retrieveHtmlBodies: Boolean,
-    val retrieveAttachmentNames: Boolean,
+    val retrieveAttachmentInfos: Boolean,
+    val downloadAttachments: Boolean,
     /**
      * If set to a value greater zero after each received [chunkSize] mails a [FetchEmailsResult] will be fired with
      * [FetchEmailsResult.completed] == false

@@ -4,44 +4,53 @@ import java.text.DateFormat
 import java.util.*
 
 
-class Email(val sender: String,
+open class Email(val sender: String,
             val subject: String,
             val receivedDate: Date,
             val sentDate: Date? = null
 ) {
 
-    private val attachmentsField = mutableListOf<Attachment>()
+    protected val attachmentInfosField = mutableListOf<AttachmentInfo>()
+
+    protected val attachmentsField = mutableListOf<Attachment>()
 
 
-    var messageId: Long? = null
+    open var messageId: Long? = null
 
 
-    var size: Long? = null
+    open var size: Long? = null
 
 
-    var plainTextBodyInfo: EmailBodyInfo? = null
+    open var plainTextBodyInfo: EmailBodyInfo? = null
 
-    var plainTextBody: String? = null
+    open var plainTextBody: String? = null
 
-    var htmlBodyInfo: EmailBodyInfo? = null
+    open var htmlBodyInfo: EmailBodyInfo? = null
 
-    var htmlBody: String? = null
+    open var htmlBody: String? = null
 
-    val body: String?
+    open val body: String?
         get() = plainTextBody ?: htmlBody
 
 
-    val attachments: List<Attachment>
+    open val attachmentInfos: List<AttachmentInfo>
+        get() = ArrayList(attachmentInfosField)
+
+    open val attachments: List<Attachment>
         get() = ArrayList(attachmentsField)
 
 
-    fun addAttachment(attachment: Attachment) {
+    open fun addAttachmentInfo(attachmentInfo: AttachmentInfo) {
+        attachmentInfosField.add(attachmentInfo)
+    }
+
+    open fun addAttachment(attachment: Attachment) {
         attachmentsField.add(attachment)
     }
 
 
     override fun toString(): String {
-        return "${DateFormat.getDateInstance(DateFormat.SHORT).format(receivedDate)} $sender: $subject (${attachments.size} attachments)"
+        return "${DateFormat.getDateInstance(DateFormat.SHORT).format(receivedDate)} $sender: $subject (${attachmentInfos.size} attachments)"
     }
 
 }
