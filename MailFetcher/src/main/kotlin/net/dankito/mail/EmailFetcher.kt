@@ -5,6 +5,7 @@ import com.sun.mail.imap.IMAPMessage
 import com.sun.mail.imap.protocol.BODYSTRUCTURE
 import net.dankito.mail.model.*
 import net.dankito.utils.IThreadPool
+import net.dankito.utils.ThreadPool
 import org.slf4j.LoggerFactory
 import java.util.*
 import javax.mail.*
@@ -12,7 +13,7 @@ import javax.mail.internet.MimeMessage
 import javax.mail.internet.MimeMultipart
 
 
-open class EmailFetcher(protected val threadPool: IThreadPool) {
+open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThreadPool = ThreadPool()) {
 
     companion object {
         private const val ProtocolPropertiesKey = "mail.store.protocol"
