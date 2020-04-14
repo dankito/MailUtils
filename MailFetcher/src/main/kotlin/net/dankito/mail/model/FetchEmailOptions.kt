@@ -3,11 +3,11 @@ package net.dankito.mail.model
 
 class FetchEmailOptions(
     val account: EmailAccount,
-    val retrieveMessageIds: Boolean,
-    val retrievePlainTextBodies: Boolean,
-    val retrieveHtmlBodies: Boolean,
-    val retrieveAttachmentInfos: Boolean,
-    val downloadAttachments: Boolean,
+    val retrieveMessageIds: Boolean = false,
+    val retrievePlainTextBodies: Boolean = false,
+    val retrieveHtmlBodies: Boolean = false,
+    val retrieveAttachmentInfos: Boolean = false,
+    val downloadAttachments: Boolean = false,
     /**
      * If set to a value greater zero after each received [chunkSize] mails a [FetchEmailsResult] will be fired with
      * [FetchEmailsResult.completed] == false
