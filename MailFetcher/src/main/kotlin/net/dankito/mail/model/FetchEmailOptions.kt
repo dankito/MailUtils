@@ -1,4 +1,4 @@
-package net.dankito.accounting.data.model.email
+package net.dankito.mail.model
 
 
 class FetchEmailOptions(

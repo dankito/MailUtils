@@ -1,4 +1,4 @@
-package net.dankito.accounting.data.model.email
+package net.dankito.mail.model
 
 import java.text.DateFormat
 import java.util.*

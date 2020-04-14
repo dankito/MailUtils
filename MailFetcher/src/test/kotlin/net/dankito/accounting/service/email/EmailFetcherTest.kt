@@ -1,8 +1,9 @@
 package net.dankito.accounting.service.email
 
-import net.dankito.accounting.data.model.email.Email
-import net.dankito.accounting.data.model.email.EmailAccount
-import net.dankito.accounting.data.model.email.FetchEmailOptions
+import net.dankito.mail.EmailFetcher
+import net.dankito.mail.model.Email
+import net.dankito.mail.model.EmailAccount
+import net.dankito.mail.model.FetchEmailOptions
 import net.dankito.utils.ThreadPool
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled

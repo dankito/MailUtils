@@ -1,4 +1,4 @@
-package net.dankito.accounting.data.model.email
+package net.dankito.mail.model
 
 
 open class AttachmentInfo(val name: String, val size: Int, val mimeType: String) {

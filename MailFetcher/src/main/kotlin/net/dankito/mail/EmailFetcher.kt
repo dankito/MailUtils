@@ -1,9 +1,9 @@
-package net.dankito.accounting.service.email
+package net.dankito.mail
 
 import com.sun.mail.imap.IMAPFolder
 import com.sun.mail.imap.IMAPMessage
 import com.sun.mail.imap.protocol.BODYSTRUCTURE
-import net.dankito.accounting.data.model.email.*
+import net.dankito.mail.model.*
 import net.dankito.utils.IThreadPool
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -107,7 +107,7 @@ open class EmailFetcher(protected val threadPool: IThreadPool) {
     }
 
     protected open fun retrieveMailsChunked(inbox: Folder, options: FetchEmailOptions, countMessages: Int,
-                                     callback: (FetchEmailsResult) -> Unit): MutableList<Email> {
+                                            callback: (FetchEmailsResult) -> Unit): MutableList<Email> {
 
         var messageNumberEnd = countMessages
         var messageNumberStart = inbox.messageCount - options.chunkSize + 1 // + 1 as end is inclusive

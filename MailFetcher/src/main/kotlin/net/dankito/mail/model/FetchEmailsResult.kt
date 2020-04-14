@@ -1,4 +1,4 @@
-package net.dankito.accounting.data.model.email
+package net.dankito.mail.model
 
 
 class FetchEmailsResult(val completed: Boolean, val emails: List<Email>, val error: Exception? = null) {
