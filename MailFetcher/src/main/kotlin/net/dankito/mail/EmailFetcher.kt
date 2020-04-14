@@ -28,7 +28,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
                 fetchEmails(options, callback)
             } catch (e: Exception) {
                 log.error("Could not fetch mails", e)
-                callback(FetchEmailsResult(true, listOf(), Exception("Could not fetch mails", e)))
+                callback(FetchEmailsResult(Exception("Could not fetch mails", e)))
             }
         }
     }
@@ -47,7 +47,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         } catch (e: Exception) {
             val errorMessage = "Could not connect to ${account.host}:${account.port} for username ${account.username}"
             log.error(errorMessage, e)
-            callback(FetchEmailsResult(true, listOf(), Exception(errorMessage, e)))
+            callback(FetchEmailsResult(Exception(errorMessage, e)))
             return
         }
 
@@ -59,7 +59,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         if (inbox == null) {
             val errorMessage = "Could not find inbox in IMAP folders ${folders.map { it.name }}"
             log.error(errorMessage)
-            callback(FetchEmailsResult(true, listOf(), Exception(errorMessage)))
+            callback(FetchEmailsResult(Exception(errorMessage)))
             return
         }
 
@@ -123,7 +123,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
             mails.addAll(retrievedChunk)
 
             if (messageNumberStart > 1) {
-                callback(FetchEmailsResult(false, mails))
+                callback(FetchEmailsResult(false, mails, retrievedChunk))
             }
 
             val lastMessageNumberStart = messageNumberStart

@@ -49,7 +49,7 @@ class EmailFetcherTest {
         // when
 
         underTest.fetchEmailsAsync(createFetchEmailOptions()) {
-            retrievedMails.set(it.emails)
+            retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
         }
@@ -78,8 +78,11 @@ class EmailFetcherTest {
         underTest.fetchEmailsAsync(createFetchEmailOptions(chunkSize = ChunkSize)) { result ->
             countCallbackInvocations.getAndIncrement()
 
-            if (result.completed) {
-                retrievedMails.set(result.emails)
+            if (result.completed == false) {
+                assertThat(result.retrievedChunk).hasSize(ChunkSize)
+            }
+            else {
+                retrievedMails.set(result.allRetrievedMails)
 
                 countDownLatch.countDown()
             }
@@ -107,7 +110,7 @@ class EmailFetcherTest {
         // when
 
         underTest.fetchEmailsAsync(createFetchEmailOptions(retrieveMessageIds = true)) {
-            retrievedMails.set(it.emails)
+            retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
         }
@@ -139,7 +142,7 @@ class EmailFetcherTest {
         // when
 
         underTest.fetchEmailsAsync(createFetchEmailOptions(retrievePlainTextBodies = true, retrieveHtmlBodies = true)) {
-            retrievedMails.set(it.emails)
+            retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
         }
@@ -171,7 +174,7 @@ class EmailFetcherTest {
         // when
 
         underTest.fetchEmailsAsync(createFetchEmailOptions(retrieveAttachmentInfos = true)) {
-            retrievedMails.set(it.emails)
+            retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
         }
@@ -213,7 +216,7 @@ class EmailFetcherTest {
         // when
 
         underTest.fetchEmailsAsync(createFetchEmailOptions(downloadAttachments = true)) {
-            retrievedMails.set(it.emails)
+            retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
         }
