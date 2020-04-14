@@ -1,13 +1,15 @@
 package net.dankito.accounting.service.email
 
 import net.dankito.mail.EmailFetcher
+import net.dankito.mail.model.CheckCredentialsResult
 import net.dankito.mail.model.Email
-import net.dankito.mail.model.EmailAccount
 import net.dankito.mail.model.FetchEmailOptions
+import net.dankito.mail.model.MailAccount
 import net.dankito.utils.ThreadPool
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
+import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -38,6 +40,72 @@ class EmailFetcherTest {
 
 
     @Test
+    fun connect_NotExistingHost() {
+
+        // given
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, "i_dont_exist.com", MailAccountPort)
+
+        // when
+        val result = underTest.checkAreCredentialsCorrect(account)
+
+        // then
+        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.WrongHostUrl)
+    }
+
+    @Test
+    fun connect_WrongPort() {
+
+        // given
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, 0)
+
+        // when
+        val result = underTest.checkAreCredentialsCorrect(account)
+
+        // then
+        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.WrongPort)
+    }
+
+    @Test
+    fun connect_WrongUsername() {
+
+        // given
+        val account = MailAccount(UUID.randomUUID().toString(), MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+
+        // when
+        val result = underTest.checkAreCredentialsCorrect(account)
+
+        // then
+        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.WrongUsername)
+    }
+
+    @Test
+    fun connect_WrongPassword() {
+
+        // given
+        val account = MailAccount(MailAccountUsername, UUID.randomUUID().toString(), MailAccountImapUrl, MailAccountPort)
+
+        // when
+        val result = underTest.checkAreCredentialsCorrect(account)
+
+        // then
+        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.WrongPassword)
+    }
+
+    @Test
+    fun connect_CredentialsAreCorrect() {
+
+        // given
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+
+        // when
+        val result = underTest.checkAreCredentialsCorrect(account)
+
+        // then
+        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.Ok)
+    }
+
+
+    @Test
     fun fetchEmails() {
 
         // given
@@ -48,7 +116,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchEmailsAsync(createFetchEmailOptions()) {
+        underTest.fetchMailsAsync(createFetchEmailOptions()) {
             retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
@@ -75,7 +143,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchEmailsAsync(createFetchEmailOptions(chunkSize = ChunkSize)) { result ->
+        underTest.fetchMailsAsync(createFetchEmailOptions(chunkSize = ChunkSize)) { result ->
             countCallbackInvocations.getAndIncrement()
 
             if (result.completed == false) {
@@ -109,7 +177,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchEmailsAsync(createFetchEmailOptions(retrieveMessageIds = true)) {
+        underTest.fetchMailsAsync(createFetchEmailOptions(retrieveMessageIds = true)) {
             retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
@@ -141,7 +209,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchEmailsAsync(createFetchEmailOptions(retrievePlainTextBodies = true, retrieveHtmlBodies = true)) {
+        underTest.fetchMailsAsync(createFetchEmailOptions(retrievePlainTextBodies = true, retrieveHtmlBodies = true)) {
             retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
@@ -173,7 +241,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchEmailsAsync(createFetchEmailOptions(retrieveAttachmentInfos = true)) {
+        underTest.fetchMailsAsync(createFetchEmailOptions(retrieveAttachmentInfos = true)) {
             retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
@@ -215,7 +283,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchEmailsAsync(createFetchEmailOptions(downloadAttachments = true)) {
+        underTest.fetchMailsAsync(createFetchEmailOptions(downloadAttachments = true)) {
             retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
@@ -252,7 +320,7 @@ class EmailFetcherTest {
                                         retrieveHtmlBodies: Boolean = false, retrieveAttachmentInfos: Boolean = false,
                                         downloadAttachments: Boolean = false, chunkSize: Int = -1): FetchEmailOptions {
 
-        val account = EmailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
 
         return FetchEmailOptions(account, retrieveMessageIds, retrievePlainTextBodies, retrieveHtmlBodies,
             retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)

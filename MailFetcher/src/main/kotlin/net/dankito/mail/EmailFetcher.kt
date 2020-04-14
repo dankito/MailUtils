@@ -3,10 +3,14 @@ package net.dankito.mail
 import com.sun.mail.imap.IMAPFolder
 import com.sun.mail.imap.IMAPMessage
 import com.sun.mail.imap.protocol.BODYSTRUCTURE
+import com.sun.mail.util.MailConnectException
 import net.dankito.mail.model.*
 import net.dankito.utils.IThreadPool
 import net.dankito.utils.ThreadPool
+import net.dankito.utils.exception.ExceptionHelper
 import org.slf4j.LoggerFactory
+import java.net.ConnectException
+import java.net.UnknownHostException
 import java.util.*
 import javax.mail.*
 import javax.mail.internet.MimeMessage
@@ -22,10 +26,76 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
 
-    fun fetchEmailsAsync(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
+    protected val exceptionHelper = ExceptionHelper()
+
+
+    open fun checkAreCredentialsCorrectAsync(account: MailAccount, callback: (CheckCredentialsResult) -> Unit) {
+        threadPool.runAsync {
+            callback(checkAreCredentialsCorrect(account))
+        }
+    }
+
+    open fun checkAreCredentialsCorrect(account: MailAccount): CheckCredentialsResult {
+        val connectResult = connect(account, false)
+
+        connectResult.store?.close()
+
+        if (connectResult.successful) {
+            return CheckCredentialsResult.Ok
+        }
+
+        return mapConnectResultError(connectResult)
+    }
+
+    protected open fun connect(account: MailAccount, showDebugOutputOnConsole: Boolean): ConnectResult {
+        val props = createPropertiesFromAccount(account)
+
+        val session = Session.getDefaultInstance(props, null)
+        session.debug = showDebugOutputOnConsole
+
+        val store = session.getStore(props.getProperty(ProtocolPropertiesKey))
+
+        try {
+            store.connect(account.host, account.username, account.password)
+        } catch (e: Exception) {
+            val errorMessage = "Could not connect to ${account.host}:${account.port} for username ${account.username}"
+            log.error(errorMessage, e)
+            return ConnectResult(Exception(errorMessage, e))
+        }
+
+        return ConnectResult(store)
+    }
+
+    protected open fun mapConnectResultError(connectResult: ConnectResult): CheckCredentialsResult {
+        if (connectResult.error != null) {
+            val innerException = exceptionHelper.getInnerException(connectResult.error, 1)
+
+            if (innerException is AuthenticationFailedException) {
+                return CheckCredentialsResult.WrongUsername
+            }
+            else if (innerException is MailConnectException) {
+                val innerInnerException = exceptionHelper.getInnerException(innerException, 1)
+
+                if (innerInnerException is UnknownHostException) {
+                    return CheckCredentialsResult.WrongHostUrl
+                }
+                else if (innerInnerException is ConnectException) {
+                    return CheckCredentialsResult.WrongPort
+                }
+            }
+            else if (innerException is MessagingException) { // MessagingException is derived from MailConnectException, so place after MailConnectException
+                return CheckCredentialsResult.WrongPassword
+            }
+        }
+
+        return CheckCredentialsResult.UnknownError // fallback for cases i am not aware of
+    }
+
+
+    open fun fetchMailsAsync(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
         threadPool.runAsync {
             try {
-                fetchEmails(options, callback)
+                fetchMails(options, callback)
             } catch (e: Exception) {
                 log.error("Could not fetch mails", e)
                 callback(FetchEmailsResult(Exception("Could not fetch mails", e)))
@@ -33,24 +103,21 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         }
     }
 
-    fun fetchEmails(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
-        val account = options.account
+    open fun fetchMails(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
+        val connectResult = connect(options.account, options.showDebugOutputOnConsole)
 
-        val props = createPropertiesFromAccount(account)
-
-        val session = Session.getDefaultInstance(props, null)
-        session.debug = options.showDebugOutputOnConsole
-
-        val store = session.getStore(props.getProperty(ProtocolPropertiesKey))
-        try {
-            store.connect(account.host, account.username, account.password)
-        } catch (e: Exception) {
-            val errorMessage = "Could not connect to ${account.host}:${account.port} for username ${account.username}"
-            log.error(errorMessage, e)
-            callback(FetchEmailsResult(Exception(errorMessage, e)))
-            return
+        if (connectResult.error != null) {
+            callback(FetchEmailsResult(connectResult.error))
         }
+        else if (connectResult.store != null) {
+            fetchMails(options, connectResult.store, callback)
+        }
+        else {
+            callback(FetchEmailsResult(Exception("Unknown error"))) // should never come to this
+        }
+    }
 
+    protected open fun fetchMails(options: FetchEmailOptions, store: Store, callback: (FetchEmailsResult) -> Unit) {
         val defaultFolder = store.defaultFolder
         val folders = defaultFolder.list()
 
@@ -81,7 +148,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
 
-    protected open fun createPropertiesFromAccount(account: EmailAccount): Properties {
+    protected open fun createPropertiesFromAccount(account: MailAccount): Properties {
         val props = System.getProperties()
 
         props.setProperty(ProtocolPropertiesKey, "imaps") // TODO: make generic
