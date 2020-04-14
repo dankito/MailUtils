@@ -92,6 +92,35 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
 
+    open fun getMailFoldersAsync(account: MailAccount, callback: (GetMailFoldersResult) -> Unit) {
+        threadPool.runAsync {
+            callback(getMailFolders(account))
+        }
+    }
+
+    open fun getMailFolders(account: MailAccount): GetMailFoldersResult {
+        val connectResult = connect(account, false)
+
+        connectResult.store?.let { store ->
+            return GetMailFoldersResult(true, mapFoldersRecursively(store.defaultFolder))
+        }
+
+        return GetMailFoldersResult(false, listOf(), connectResult.error)
+    }
+
+    private fun mapFoldersRecursively(folder: Folder?): List<MailFolder> {
+        folder?.let {
+            val subFolders = folder.list().toList()
+
+            return subFolders.map {
+                MailFolder(it.name, it.messageCount, mapFoldersRecursively(it))
+            }
+        }
+
+        return listOf()
+    }
+
+
     open fun fetchMailsAsync(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
         threadPool.runAsync {
             try {

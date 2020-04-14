@@ -106,6 +106,22 @@ class EmailFetcherTest {
 
 
     @Test
+    fun getMailFolders() {
+
+        // given
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+
+        // when
+        val result = underTest.getMailFolders(account)
+
+        // then
+        assertThat(result.successful).isTrue()
+        assertThat(result.error).isNull()
+        assertThat(result.folders).isNotEmpty
+    }
+
+
+    @Test
     fun fetchEmails() {
 
         // given
