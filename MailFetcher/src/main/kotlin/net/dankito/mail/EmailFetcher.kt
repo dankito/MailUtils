@@ -256,7 +256,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
                                      messageNumberEnd: Int): List<Email> {
 
         val messages = folder.getMessages(messageNumberStart, messageNumberEnd)
-        log.info("Retrieved ${messages.size} Messages")
+        log.debug("Retrieved ${messages.size} Messages")
 
         return mapEmails(folder, options, messages)
     }
