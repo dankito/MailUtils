@@ -281,7 +281,6 @@ class EmailFetcherTest {
 
         retrievedMails.get().forEach { mail ->
             assertThat(mail.messageId).isNull()
-            assertThat(mail.body).isNotNull()
             assertThat(mail.attachmentInfos).isEmpty()
             assertThat(mail.contentType).isNotNull()
         }
