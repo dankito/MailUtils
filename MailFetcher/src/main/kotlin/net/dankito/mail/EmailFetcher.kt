@@ -190,24 +190,40 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
 
-    protected open fun retrieveMails(inbox: Folder, options: FetchEmailOptions,
+    protected open fun retrieveMails(folder: Folder, options: FetchEmailOptions,
                                      callback: (FetchEmailsResult) -> Unit): List<Email> {
 
-        val countMessages = inbox.messageCount
+        val countMessages = folder.messageCount
 
-        if (options.retrieveMailsInChunks) {
-            return retrieveMailsChunked(inbox, options, countMessages, callback)
+        if (options.retrieveOnlyMessagesWithTheseIds.isNullOrEmpty() == false) {
+            return retrieveMessagesWithIds(folder, options, options.retrieveOnlyMessagesWithTheseIds, callback)
+        }
+        else if (options.retrieveMailsInChunks) {
+            return retrieveMailsChunked(folder, options, countMessages, callback)
         }
         else {
-            return retrieveMails(inbox, options, 1, countMessages) // message numbers start at one, not zero
+            return retrieveMails(folder, options, 1, countMessages) // message numbers start at one, not zero
         }
     }
 
-    protected open fun retrieveMailsChunked(inbox: Folder, options: FetchEmailOptions, countMessages: Int,
+    protected open fun retrieveMessagesWithIds(folder: Folder, options: FetchEmailOptions, retrieveOnlyMessagesWithTheseIds: List<Long>,
+                                               callback: (FetchEmailsResult) -> Unit): List<Email> {
+
+        (folder as? IMAPFolder)?.let { imapFolder ->
+            // TODO: implement options.chunkSize
+            val messages = imapFolder.getMessagesByUID(retrieveOnlyMessagesWithTheseIds.toLongArray())
+
+            return mapEmails(folder, options, messages)
+        }
+
+        return listOf()
+    }
+
+    protected open fun retrieveMailsChunked(folder: Folder, options: FetchEmailOptions, countMessages: Int,
                                             callback: (FetchEmailsResult) -> Unit): MutableList<Email> {
 
         var messageNumberEnd = countMessages
-        var messageNumberStart = inbox.messageCount - options.chunkSize + 1 // + 1 as end is inclusive
+        var messageNumberStart = folder.messageCount - options.chunkSize + 1 // + 1 as end is inclusive
         if (messageNumberStart < 1) {
             messageNumberStart = 1
         }
@@ -215,7 +231,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         val mails = mutableListOf<Email>()
 
         while (messageNumberStart > 0) {
-            val retrievedChunk = retrieveMails(inbox, options, messageNumberStart, messageNumberEnd)
+            val retrievedChunk = retrieveMails(folder, options, messageNumberStart, messageNumberEnd)
             mails.addAll(retrievedChunk)
 
             if (messageNumberStart > 1) {
@@ -242,6 +258,10 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         val messages = folder.getMessages(messageNumberStart, messageNumberEnd)
         log.info("Retrieved ${messages.size} Messages")
 
+        return mapEmails(folder, options, messages)
+    }
+
+    protected open fun mapEmails(folder: Folder, options: FetchEmailOptions, messages: Array<Message>): List<Email> {
         return messages.map { message ->
             mapEmail(folder, options, message)
         }

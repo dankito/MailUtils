@@ -32,6 +32,9 @@ class EmailFetcherTest {
 
         private const val ChunkSize = 10
 
+        // TODO: i hope these message ids also exist on your account; adjust if needed
+        private val MessageIdsToFetch = listOf<Long>(2, 3, 4, 5, 6)
+
         private const val ShowJavaMailDebugLogOutput = false
     }
 
@@ -145,6 +148,33 @@ class EmailFetcherTest {
 
         assertThat(retrievedMails.get()).isNotNull
         assertThat(retrievedMails.get()).isNotEmpty
+    }
+
+    @Test
+    fun fetchOnlyMailsWithMessageIds() {
+
+        // given
+
+        val retrievedMails = AtomicReference<List<Email>>(null)
+        val countDownLatch = CountDownLatch(1)
+
+
+        // when
+
+        underTest.fetchMailsAsync(createFetchEmailOptions(MessageIdsToFetch, true)) {
+            retrievedMails.set(it.allRetrievedMails)
+
+            countDownLatch.countDown()
+        }
+
+        try { countDownLatch.await(60, TimeUnit.SECONDS) } catch (ignored: Exception) { }
+
+
+        // then
+
+        assertThat(retrievedMails.get()).isNotNull
+        assertThat(retrievedMails.get()).hasSize(MessageIdsToFetch.size)
+        assertThat(retrievedMails.get().map { it.messageId }).containsExactly(*MessageIdsToFetch.toTypedArray())
     }
 
     @Test
@@ -332,14 +362,15 @@ class EmailFetcherTest {
     }
 
 
-    private fun createFetchEmailOptions(retrieveMessageIds: Boolean = false, retrievePlainTextBodies: Boolean = false,
+    private fun createFetchEmailOptions(retrieveOnlyMessagesWithTheseIds: List<Long>? = null,
+                                        retrieveMessageIds: Boolean = false, retrievePlainTextBodies: Boolean = false,
                                         retrieveHtmlBodies: Boolean = false, retrieveAttachmentInfos: Boolean = false,
                                         downloadAttachments: Boolean = false, chunkSize: Int = -1): FetchEmailOptions {
 
         val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
 
-        return FetchEmailOptions(account, retrieveMessageIds, retrievePlainTextBodies, retrieveHtmlBodies,
-            retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
+        return FetchEmailOptions(account, retrieveOnlyMessagesWithTheseIds, retrieveMessageIds, retrievePlainTextBodies,
+            retrieveHtmlBodies, retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
     }
 
 }

@@ -3,6 +3,7 @@ package net.dankito.mail.model
 
 class FetchEmailOptions(
     val account: MailAccount,
+    val retrieveOnlyMessagesWithTheseIds: List<Long>? = null,
     val retrieveMessageIds: Boolean = false,
     val retrievePlainTextBodies: Boolean = false,
     val retrieveHtmlBodies: Boolean = false,
