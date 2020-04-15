@@ -364,7 +364,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
                     setBodyAndAttachmentsFromMultiPartContent(options, mail, partMultipartContent)
                 }
             }
-            else if (options.retrieveAttachmentInfos || options.downloadAttachments) {
+            else if (isAttachment && (options.retrieveAttachmentInfos || options.downloadAttachments)) {
                 downloadAttachmentOrGetAttachmentInfo(bodyPart, i, options, mail)
             }
         }
