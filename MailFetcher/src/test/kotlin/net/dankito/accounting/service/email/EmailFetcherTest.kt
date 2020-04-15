@@ -33,7 +33,7 @@ class EmailFetcherTest {
         private const val ChunkSize = 10
 
         // TODO: i hope these message ids also exist on your account; adjust if needed
-        private val MessageIdsToFetch = listOf<Long>(2, 3, 4, 5, 6)
+        private val MessageIdsToFetch = listOf<Long>(2, 3, 4, 5, 6) // specify 5 message ids to also test chunkSize
 
         private const val ShowJavaMailDebugLogOutput = false
     }
@@ -216,6 +216,44 @@ class EmailFetcherTest {
             retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
+        }
+
+        try { countDownLatch.await(60, TimeUnit.SECONDS) } catch (ignored: Exception) { }
+
+
+        // then
+
+        assertThat(retrievedMails.get()).isNotNull
+        assertThat(retrievedMails.get()).hasSize(MessageIdsToFetch.size)
+        assertThat(retrievedMails.get().map { it.messageId }).containsExactly(*MessageIdsToFetch.toTypedArray())
+    }
+
+    @Test
+    fun fetchOnlyMailsWithMessageIdsChunked() {
+
+        // given
+
+        val chunkSize = 2
+        val retrievedMails = AtomicReference<List<Email>>(null)
+        val countCallbackInvocations = AtomicInteger(0)
+        val countDownLatch = CountDownLatch(1)
+
+
+        // when
+
+        underTest.fetchMailsAsync(createFetchEmailOptions(null, MessageIdsToFetch, true, chunkSize = chunkSize)) { result ->
+            countCallbackInvocations.getAndIncrement()
+
+            if (result.allRetrievedMails.size % chunkSize == 0) {
+                assertThat(result.retrievedChunk).hasSize(chunkSize)
+            }
+            else {
+                if (result.completed) {
+                    retrievedMails.set(result.allRetrievedMails)
+
+                    countDownLatch.countDown()
+                }
+            }
         }
 
         try { countDownLatch.await(60, TimeUnit.SECONDS) } catch (ignored: Exception) { }
