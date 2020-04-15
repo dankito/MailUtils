@@ -234,9 +234,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
             val retrievedChunk = retrieveMails(folder, options, messageNumberStart, messageNumberEnd)
             mails.addAll(retrievedChunk)
 
-            if (messageNumberStart > 1) {
-                callback(FetchEmailsResult(false, mails, retrievedChunk))
-            }
+            callback(FetchEmailsResult(false, mails, retrievedChunk))
 
             val lastMessageNumberStart = messageNumberStart
             messageNumberEnd = messageNumberStart - 1

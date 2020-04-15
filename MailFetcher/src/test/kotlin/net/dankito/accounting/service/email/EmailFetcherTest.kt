@@ -192,13 +192,15 @@ class EmailFetcherTest {
         underTest.fetchMailsAsync(createFetchEmailOptions(chunkSize = ChunkSize)) { result ->
             countCallbackInvocations.getAndIncrement()
 
-            if (result.completed == false) {
+            if (result.allRetrievedMails.size % ChunkSize == 0) {
                 assertThat(result.retrievedChunk).hasSize(ChunkSize)
             }
             else {
-                retrievedMails.set(result.allRetrievedMails)
+                if (result.completed) {
+                    retrievedMails.set(result.allRetrievedMails)
 
-                countDownLatch.countDown()
+                    countDownLatch.countDown()
+                }
             }
         }
 
@@ -209,7 +211,7 @@ class EmailFetcherTest {
 
         assertThat(retrievedMails.get()).isNotNull
         assertThat(retrievedMails.get()).isNotEmpty
-        assertThat(countCallbackInvocations.get()).isEqualTo(Math.ceil(retrievedMails.get().size / ChunkSize.toDouble()).toInt())
+        assertThat(countCallbackInvocations.get()).isEqualTo(Math.ceil(retrievedMails.get().size / ChunkSize.toDouble()).toInt() + 1)
     }
 
     @Test
