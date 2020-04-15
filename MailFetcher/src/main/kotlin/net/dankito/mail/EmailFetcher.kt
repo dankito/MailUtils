@@ -108,7 +108,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         return GetMailFoldersResult(false, listOf(), connectResult.error)
     }
 
-    private fun mapFoldersRecursively(folder: Folder?): List<MailFolder> {
+    protected open fun mapFoldersRecursively(folder: Folder?): List<MailFolder> {
         folder?.let {
             val subFolders = folder.list().toList()
 
@@ -274,11 +274,15 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         val messages = folder.getMessages(messageNumberStart, messageNumberEnd)
         log.debug("Retrieved ${messages.size} Messages")
 
+        prefetchRequiredData(folder, options, messages)
+
         return mapEmails(folder, options, messages.toList())
     }
 
     protected open fun mapEmailsAccordingToOptions(folder: Folder, options: FetchEmailOptions, messages: List<Message>, callback: (FetchEmailsResult) -> Unit): List<Email> {
         val messagesSorted = messages.sortedBy { it.messageNumber }
+
+        prefetchRequiredData(folder, options, messagesSorted.toTypedArray())
 
         if (options.retrieveMailsInChunks == false) {
             return mapEmails(folder, options, messagesSorted)
@@ -286,6 +290,19 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         else {
             return mapEmailsChunked(messagesSorted, options, folder, callback)
         }
+    }
+
+    protected open fun prefetchRequiredData(folder: Folder, options: FetchEmailOptions, messages: Array<Message>) {
+        val fetchProfile = FetchProfile()
+
+        fetchProfile.add(FetchProfile.Item.ENVELOPE)
+        fetchProfile.add(FetchProfile.Item.SIZE)
+
+        if (options.retrievePlainTextBodies || options.retrieveHtmlBodies) {
+            fetchProfile.add(FetchProfile.Item.CONTENT_INFO)
+        }
+
+        folder.fetch(messages, fetchProfile) // Load the profile of the messages in 1 fetch.
     }
 
     protected open fun mapEmails(folder: Folder, options: FetchEmailOptions, messages: List<Message>): List<Email> {
