@@ -331,7 +331,8 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
     protected open fun addAttachmentInfoFromBodyStructure(mail: Email, bodyStructure: BODYSTRUCTURE) {
-        mail.addAttachmentInfo(AttachmentInfo(bodyStructure.dParams["filename"] ?: "", bodyStructure.size, bodyStructure.type + "/" + bodyStructure.subtype))
+        val name = bodyStructure.dParams?.get("filename") ?: bodyStructure.cParams?.get("name") ?: ""
+        mail.addAttachmentInfo(AttachmentInfo(name, bodyStructure.size, bodyStructure.type + "/" + bodyStructure.subtype))
     }
 
 
