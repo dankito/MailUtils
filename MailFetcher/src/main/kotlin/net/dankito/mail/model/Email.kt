@@ -37,6 +37,9 @@ open class Email(val sender: String,
 
     open var htmlBody: String? = null
 
+    /**
+     * May be null, e.g. for encrypted messages
+     */
     open val body: String?
         get() = plainTextBody ?: htmlBody
 
