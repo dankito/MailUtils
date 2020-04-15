@@ -266,7 +266,8 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
     protected open fun mapEmail(folder: Folder, options: FetchEmailOptions, message: Message): Email {
-        val mail = Email(message.from.joinToString { it.toString() }, message.subject ?: "", message.receivedDate, message.sentDate)
+        val recipients = message.allRecipients?.map { mapSenderOrRecipient(it) } ?: listOf()
+        val mail = Email(mapSenderOrRecipient(message.from.firstOrNull()), recipients, message.subject ?: "", message.receivedDate, message.sentDate)
 
         (message as? IMAPMessage)?.let { imapMessage ->
             mail.size = imapMessage.sizeLong
@@ -278,6 +279,10 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         setEmailBody(folder, options, message, mail)
 
         return mail
+    }
+
+    protected open fun mapSenderOrRecipient(senderOrRecipient: Address?): String {
+        return senderOrRecipient?.toString() ?: ""
     }
 
     protected open fun setEmailBody(folder: Folder, options: FetchEmailOptions, message: Message, mail: Email) {

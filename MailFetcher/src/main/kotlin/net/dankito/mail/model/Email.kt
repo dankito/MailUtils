@@ -5,9 +5,10 @@ import java.util.*
 
 
 open class Email(val sender: String,
-            val subject: String,
-            val receivedDate: Date,
-            val sentDate: Date? = null
+                 val recipients: List<String>,
+                 val subject: String,
+                 val receivedDate: Date,
+                 val sentDate: Date? = null
 ) {
 
     protected val attachmentInfosField = mutableListOf<AttachmentInfo>()
