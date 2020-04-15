@@ -21,6 +21,13 @@ open class Email(val sender: String,
 
     open var size: Long? = null
 
+    /**
+     * contentType does not loaded in each case as this causes a new request to server.
+     *
+     * It only gets set if bodies get loaded anyway.
+     */
+    open var contentType: String? = null
+
 
     open var plainTextBodyInfo: EmailBodyInfo? = null
 

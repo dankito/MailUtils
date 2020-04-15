@@ -148,6 +148,13 @@ class EmailFetcherTest {
 
         assertThat(retrievedMails.get()).isNotNull
         assertThat(retrievedMails.get()).isNotEmpty
+
+        retrievedMails.get().forEach { mail ->
+            assertThat(mail.messageId).isNull()
+            assertThat(mail.body).isNull()
+            assertThat(mail.attachmentInfos).isEmpty()
+            assertThat(mail.contentType).isNull()
+        }
     }
 
     @Test
@@ -243,6 +250,7 @@ class EmailFetcherTest {
             assertThat(mail.messageId).isNotNull()
             assertThat(mail.body).isNull()
             assertThat(mail.attachmentInfos).isEmpty()
+            assertThat(mail.contentType).isNull()
         }
     }
 
@@ -275,6 +283,7 @@ class EmailFetcherTest {
             assertThat(mail.messageId).isNull()
             assertThat(mail.body).isNotNull()
             assertThat(mail.attachmentInfos).isEmpty()
+            assertThat(mail.contentType).isNotNull()
         }
     }
 
@@ -317,6 +326,7 @@ class EmailFetcherTest {
         retrievedMails.get().forEach { mail ->
             assertThat(mail.messageId).isNull()
             assertThat(mail.body).isNull()
+            assertThat(mail.contentType).isNotNull()
         }
     }
 
@@ -360,6 +370,7 @@ class EmailFetcherTest {
         retrievedMails.get().forEach { mail ->
             assertThat(mail.messageId).isNull()
             assertThat(mail.body).isNull()
+            assertThat(mail.contentType).isNotNull()
         }
     }
 

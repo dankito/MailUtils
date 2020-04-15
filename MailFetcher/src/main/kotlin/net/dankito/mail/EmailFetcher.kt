@@ -304,7 +304,8 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
     protected open fun setBodyInfoAndAttachmentInfoFromBodyStructure(message: IMAPMessage, mail: Email) {
-        val contentType = message.contentType // to load body structure
+        val contentTypeWithAdditionalInfo = message.contentType // to load body structure
+        mail.contentType = extractContentType(contentTypeWithAdditionalInfo)
 
         try {
             val bodyStructureField = IMAPMessage::class.java.getDeclaredField("bs")
@@ -340,6 +341,8 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
 
 
     protected open fun setBodyAndAttachmentsFromMessageContent(options: FetchEmailOptions, message: Message, mail: Email) {
+        mail.contentType = extractContentType(message.contentType)
+
         if (message.contentType.contains("text/", true)) {
             setTextBody(options, mail, message.contentType, message.content.toString())
         }
@@ -378,19 +381,15 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     protected open fun downloadAttachmentOrGetAttachmentInfo(bodyPart: BodyPart, index: Int, options: FetchEmailOptions, mail: Email) {
         val fileName = bodyPart.fileName ?: "Attachment_${index + 1}"
 
-        var mimeType = bodyPart.contentType
-        val indexOfSemicolon = mimeType.indexOf(';')
-        if (indexOfSemicolon > 0) {
-            mimeType = mimeType.substring(0, indexOfSemicolon) // TODO: try to keep charset?
-        }
+        val contentType = extractContentType(bodyPart.contentType)
 
         if (options.retrieveAttachmentInfos) {
-            mail.addAttachmentInfo(AttachmentInfo(fileName, bodyPart.size, mimeType))
+            mail.addAttachmentInfo(AttachmentInfo(fileName, bodyPart.size, contentType))
         }
         if (options.downloadAttachments) {
             val content = bodyPart.inputStream.buffered().readBytes()
 
-            mail.addAttachment(Attachment(fileName, bodyPart.size, mimeType, content))
+            mail.addAttachment(Attachment(fileName, bodyPart.size, contentType, content))
         }
 
         if (bodyPart.fileName.isNullOrEmpty()) {
@@ -402,13 +401,30 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         if (contentType.contains("text/plain", true)) {
             if (options.retrievePlainTextBodies) {
                 mail.plainTextBody = content
+
+                if (mail.contentType?.startsWith("multipart") == true) {
+                    mail.contentType = "text/plain"
+                }
             }
         }
         else if (contentType.contains("text/html", true)) {
             if (options.retrieveHtmlBodies) {
                 mail.htmlBody = content
+                mail.contentType = "text/html"
             }
         }
+    }
+
+
+    protected open fun extractContentType(contentTypeWithAdditionalInfo: String): String {
+        var contentType = contentTypeWithAdditionalInfo
+
+        val indexOfSemicolon = contentType.indexOf(';')
+        if (indexOfSemicolon > 0) { // throw away e.g. 'name=' and 'boundary='
+            contentType = contentType.substring(0, indexOfSemicolon) // TODO: try to keep charset?
+        }
+
+        return contentType.toLowerCase()
     }
 
 }
