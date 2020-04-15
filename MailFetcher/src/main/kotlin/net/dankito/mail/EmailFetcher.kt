@@ -236,27 +236,27 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     protected open fun retrieveMailsChunked(folder: Folder, options: FetchEmailOptions, countMessages: Int,
                                             callback: (FetchEmailsResult) -> Unit): MutableList<Email> {
 
-        var messageNumberEnd = countMessages
-        var messageNumberStart = folder.messageCount - options.chunkSize + 1 // + 1 as end is inclusive
-        if (messageNumberStart < 1) {
-            messageNumberStart = 1
+        var messageNumberStart = 1 // message numbers start at 1
+        var messageNumberEnd = messageNumberStart + options.chunkSize
+        if (messageNumberEnd > countMessages) {
+            messageNumberEnd = countMessages
         }
 
         val mails = mutableListOf<Email>()
 
-        while (messageNumberStart > 0) {
+        while (messageNumberEnd <= countMessages) { // end is inclusive
             val retrievedChunk = retrieveMails(folder, options, messageNumberStart, messageNumberEnd)
             mails.addAll(retrievedChunk)
 
             callback(FetchEmailsResult(false, mails, retrievedChunk))
 
-            val lastMessageNumberStart = messageNumberStart
-            messageNumberEnd = messageNumberStart - 1
-            messageNumberStart -= options.chunkSize
-            if (messageNumberStart < 1) {
-                if (lastMessageNumberStart > 1) {
-                    messageNumberStart = 1
-                    messageNumberEnd = lastMessageNumberStart - 1
+            val lastMessageNumberEnd = messageNumberEnd
+            messageNumberStart = messageNumberEnd + 1
+            messageNumberEnd += options.chunkSize
+            if (messageNumberEnd > countMessages) {
+                if (lastMessageNumberEnd < countMessages) {
+                    messageNumberEnd = countMessages
+                    messageNumberStart = lastMessageNumberEnd + 1
                 }
             }
         }
