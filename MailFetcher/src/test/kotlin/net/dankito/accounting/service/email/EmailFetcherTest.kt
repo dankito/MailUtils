@@ -158,6 +158,50 @@ class EmailFetcherTest {
     }
 
     @Test
+    fun fetchAllMessagesFromThisMessageIdOn() {
+
+        // given
+
+        val retrievedMails = AtomicReference<List<Email>>(null)
+        val countDownLatch = CountDownLatch(1)
+
+        // first get all messages and than retrieve last max 10 mails by message id
+        val allMails = AtomicReference<List<Email>>(null)
+        val allMailsCountDownLatch = CountDownLatch(1)
+
+        underTest.fetchMailsAsync(createFetchEmailOptions(retrieveMessageIds = true)) {
+            allMails.set(it.allRetrievedMails)
+
+            allMailsCountDownLatch.countDown()
+        }
+
+        try { allMailsCountDownLatch.await(60, TimeUnit.SECONDS) } catch (ignored: Exception) { }
+
+        val allMessageIds = allMails.get().mapNotNull { it.messageId }.sorted()
+        val messageIdsToRetrieve = if (allMessageIds.size > 10) allMessageIds.subList(allMessageIds.size - 10, allMessageIds.size) else listOf(allMessageIds.last())
+
+        val messagesStartId = messageIdsToRetrieve.sorted().first()
+
+
+        // when
+
+        underTest.fetchMailsAsync(createFetchEmailOptions(messagesStartId, retrieveMessageIds = true)) {
+            retrievedMails.set(it.allRetrievedMails)
+
+            countDownLatch.countDown()
+        }
+
+        try { countDownLatch.await(60, TimeUnit.SECONDS) } catch (ignored: Exception) { }
+
+
+        // then
+
+        assertThat(retrievedMails.get()).isNotNull
+        assertThat(retrievedMails.get()).hasSize(messageIdsToRetrieve.size)
+        assertThat(retrievedMails.get().mapNotNull { it.messageId }).containsExactly(*messageIdsToRetrieve.toTypedArray())
+    }
+
+    @Test
     fun fetchOnlyMailsWithMessageIds() {
 
         // given
@@ -168,7 +212,7 @@ class EmailFetcherTest {
 
         // when
 
-        underTest.fetchMailsAsync(createFetchEmailOptions(MessageIdsToFetch, true)) {
+        underTest.fetchMailsAsync(createFetchEmailOptions(null, MessageIdsToFetch, true)) {
             retrievedMails.set(it.allRetrievedMails)
 
             countDownLatch.countDown()
@@ -374,15 +418,16 @@ class EmailFetcherTest {
     }
 
 
-    private fun createFetchEmailOptions(retrieveOnlyMessagesWithTheseIds: List<Long>? = null,
+    private fun createFetchEmailOptions(retrieveAllMessagesFromThisMessageIdOn: Long? = null,
+                                        retrieveOnlyMessagesWithTheseIds: List<Long>? = null,
                                         retrieveMessageIds: Boolean = false, retrievePlainTextBodies: Boolean = false,
                                         retrieveHtmlBodies: Boolean = false, retrieveAttachmentInfos: Boolean = false,
                                         downloadAttachments: Boolean = false, chunkSize: Int = -1): FetchEmailOptions {
 
         val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
 
-        return FetchEmailOptions(account, retrieveOnlyMessagesWithTheseIds, retrieveMessageIds, retrievePlainTextBodies,
-            retrieveHtmlBodies, retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
+        return FetchEmailOptions(account, retrieveAllMessagesFromThisMessageIdOn, retrieveOnlyMessagesWithTheseIds, retrieveMessageIds,
+            retrievePlainTextBodies, retrieveHtmlBodies, retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
     }
 
 }

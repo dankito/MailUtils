@@ -195,7 +195,10 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
 
         val countMessages = folder.messageCount
 
-        if (options.retrieveOnlyMessagesWithTheseIds.isNullOrEmpty() == false) {
+        if (options.retrieveAllMessagesFromThisMessageIdOn != null) {
+            return retrieveAllMessagesFromThisMessageIdOn(folder, options, options.retrieveAllMessagesFromThisMessageIdOn, callback)
+        }
+        else if (options.retrieveOnlyMessagesWithTheseIds.isNullOrEmpty() == false) {
             return retrieveMessagesWithIds(folder, options, options.retrieveOnlyMessagesWithTheseIds, callback)
         }
         else if (options.retrieveMailsInChunks) {
@@ -204,6 +207,19 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         else {
             return retrieveMails(folder, options, 1, countMessages) // message numbers start at one, not zero
         }
+    }
+
+    protected open fun retrieveAllMessagesFromThisMessageIdOn(folder: Folder, options: FetchEmailOptions, retrieveAllMessagesFromThisMessageIdOn: Long,
+                                               callback: (FetchEmailsResult) -> Unit): List<Email> {
+
+        (folder as? IMAPFolder)?.let { imapFolder ->
+            // TODO: implement options.chunkSize
+            val messages = imapFolder.getMessagesByUID(retrieveAllMessagesFromThisMessageIdOn, UIDFolder.MAXUID)
+
+            return mapEmails(folder, options, messages)
+        }
+
+        return listOf()
     }
 
     protected open fun retrieveMessagesWithIds(folder: Folder, options: FetchEmailOptions, retrieveOnlyMessagesWithTheseIds: List<Long>,
