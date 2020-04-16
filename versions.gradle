@@ -17,7 +17,7 @@ ext {
 
     javaxMailVersion = "1.6.2"
 
-    
+
     javaUtilsVersion = '1.0.15'
     
     
