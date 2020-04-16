@@ -35,7 +35,7 @@ class EmailFetcherTest {
         private const val MailAccountImapServerPort = 993
 
 
-        private const val ChunkSize = 10
+        private const val ChunkSize = 50
 
         // TODO: i hope these message ids also exist on your account; adjust if needed
         private val MessageIdsToFetch = listOf<Long>(2, 3, 4, 5, 6) // specify 5 message ids to also test chunkSize
