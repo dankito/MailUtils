@@ -56,9 +56,9 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         val store = session.getStore(props.getProperty(ProtocolPropertiesKey))
 
         try {
-            store.connect(account.host, account.username, account.password)
+            store.connect(account.imapServerAddress, account.username, account.password)
         } catch (e: Exception) {
-            val errorMessage = "Could not connect to ${account.host}:${account.port} for username ${account.username}"
+            val errorMessage = "Could not connect to ${account.imapServerAddress}:${account.imapServerPort} for username ${account.username}"
             log.error(errorMessage, e)
             return ConnectResult(Exception(errorMessage, e))
         }
@@ -77,10 +77,10 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
                 val innerInnerException = exceptionHelper.getInnerException(innerException, 1)
 
                 if (innerInnerException is UnknownHostException) {
-                    return CheckCredentialsResult.WrongHostUrl
+                    return CheckCredentialsResult.InvalidImapServerAddress
                 }
                 else if (innerInnerException is ConnectException) {
-                    return CheckCredentialsResult.WrongPort
+                    return CheckCredentialsResult.InvalidImapServerPort
                 }
             }
             else if (innerException is MessagingException) { // MessagingException is derived from MailConnectException, so place after MailConnectException
@@ -185,8 +185,8 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         val props = System.getProperties()
 
         props.setProperty(ProtocolPropertiesKey, "imaps") // TODO: make generic
-        props.setProperty("mail.imaps.host", account.host)
-        props.setProperty("mail.imaps.port", account.port.toString())
+        props.setProperty("mail.imaps.host", account.imapServerAddress)
+        props.setProperty("mail.imaps.port", account.imapServerPort.toString())
         props.setProperty("mail.imaps.connectiontimeout", "5000")
         props.setProperty("mail.imaps.timeout", "5000")
 

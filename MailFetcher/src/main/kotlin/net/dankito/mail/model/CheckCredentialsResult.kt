@@ -9,9 +9,9 @@ enum class CheckCredentialsResult {
 
     WrongPassword,
 
-    WrongHostUrl,
+    InvalidImapServerAddress,
 
-    WrongPort,
+    InvalidImapServerPort,
 
     UnknownError
 

@@ -30,9 +30,9 @@ class EmailFetcherTest {
 
         private const val MailAccountPassword = ""
 
-        private const val MailAccountImapUrl = ""
+        private const val MailAccountImapServerAddress = ""
 
-        private const val MailAccountPort = 0
+        private const val MailAccountImapServerPort = 993
 
 
         private const val ChunkSize = 10
@@ -50,36 +50,36 @@ class EmailFetcherTest {
 
 
     @Test
-    fun connect_NotExistingHost() {
+    fun connect_NotExistingServerAddress() {
 
         // given
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, "i_dont_exist.com", MailAccountPort)
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, "i_dont_exist.com", MailAccountImapServerPort)
 
         // when
         val result = underTest.checkAreCredentialsCorrect(account)
 
         // then
-        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.WrongHostUrl)
+        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.InvalidImapServerAddress)
     }
 
     @Test
-    fun connect_WrongPort() {
+    fun connect_InvalidImapServerPort() {
 
         // given
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, 0)
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, 0)
 
         // when
         val result = underTest.checkAreCredentialsCorrect(account)
 
         // then
-        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.WrongPort)
+        assertThat(result).isEqualByComparingTo(CheckCredentialsResult.InvalidImapServerPort)
     }
 
     @Test
     fun connect_WrongUsername() {
 
         // given
-        val account = MailAccount(UUID.randomUUID().toString(), MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+        val account = MailAccount(UUID.randomUUID().toString(), MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
 
         // when
         val result = underTest.checkAreCredentialsCorrect(account)
@@ -92,7 +92,7 @@ class EmailFetcherTest {
     fun connect_WrongPassword() {
 
         // given
-        val account = MailAccount(MailAccountUsername, UUID.randomUUID().toString(), MailAccountImapUrl, MailAccountPort)
+        val account = MailAccount(MailAccountUsername, UUID.randomUUID().toString(), MailAccountImapServerAddress, MailAccountImapServerPort)
 
         // when
         val result = underTest.checkAreCredentialsCorrect(account)
@@ -105,7 +105,7 @@ class EmailFetcherTest {
     fun connect_CredentialsAreCorrect() {
 
         // given
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
 
         // when
         val result = underTest.checkAreCredentialsCorrect(account)
@@ -119,7 +119,7 @@ class EmailFetcherTest {
     fun getMailFolders() {
 
         // given
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
 
         // when
         val result = underTest.getMailFolders(account)
@@ -520,7 +520,7 @@ class EmailFetcherTest {
                                         retrieveHtmlBodies: Boolean = false, retrieveAttachmentInfos: Boolean = false,
                                         downloadAttachments: Boolean = false, chunkSize: Int = -1): FetchEmailOptions {
 
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapUrl, MailAccountPort)
+        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
 
         return FetchEmailOptions(account, retrieveAllMessagesFromThisMessageIdOn, retrieveOnlyMessagesWithTheseIds, retrieveMessageIds,
             retrievePlainTextBodies, retrieveHtmlBodies, retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
