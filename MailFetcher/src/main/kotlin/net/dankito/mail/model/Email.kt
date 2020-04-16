@@ -18,6 +18,13 @@ open class Email(val sender: String,
 
     open var messageId: Long? = null
 
+    open val displayName: String
+        get() {
+            val date = DateFormat.getDateInstance(DateFormat.SHORT).format(receivedDate)
+
+            return "$date $sender - $subject"
+        }
+
 
     open var size: Long? = null
 
