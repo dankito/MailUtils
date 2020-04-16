@@ -241,7 +241,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
                                             callback: (FetchEmailsResult) -> Unit): MutableList<Email> {
 
         var messageNumberStart = 1 // message numbers start at 1
-        var messageNumberEnd = messageNumberStart + options.chunkSize
+        var messageNumberEnd = messageNumberStart + options.chunkSize - 1
         if (messageNumberEnd > countMessages) {
             messageNumberEnd = countMessages
         }

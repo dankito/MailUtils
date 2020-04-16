@@ -243,6 +243,7 @@ class EmailFetcherTest {
         val chunkSize = 2
         val retrievedMails = AtomicReference<List<Email>>(null)
         val countCallbackInvocations = AtomicInteger(0)
+        var previousChunkSize = 0
         val countDownLatch = CountDownLatch(1)
 
 
@@ -251,15 +252,20 @@ class EmailFetcherTest {
         underTest.fetchMailsAsync(createFetchEmailOptions(null, MessageIdsToFetch, true, chunkSize = chunkSize)) { result ->
             countCallbackInvocations.getAndIncrement()
 
-            if (result.allRetrievedMails.size % chunkSize == 0) {
-                assertThat(result.retrievedChunk).hasSize(chunkSize)
+            if (result.completed == false) {
+                if (result.allRetrievedMails.size % chunkSize == 0) { // last chunk may has a chunk size < chunkSize
+                    assertThat(result.retrievedChunk).hasSize(chunkSize)
+                }
+                else { // to find if retrievedChunk never has chunkSize
+                    assertThat(previousChunkSize).isEqualTo(chunkSize)
+                }
+
+                previousChunkSize = result.retrievedChunk.size
             }
             else {
-                if (result.completed) {
-                    retrievedMails.set(result.allRetrievedMails)
+                retrievedMails.set(result.allRetrievedMails)
 
-                    countDownLatch.countDown()
-                }
+                countDownLatch.countDown()
             }
         }
 
@@ -280,6 +286,7 @@ class EmailFetcherTest {
 
         val retrievedMails = AtomicReference<List<Email>>(null)
         val countCallbackInvocations = AtomicInteger(0)
+        var previousChunkSize = 0
         val countDownLatch = CountDownLatch(1)
 
 
@@ -288,15 +295,20 @@ class EmailFetcherTest {
         underTest.fetchMailsAsync(createFetchEmailOptions(chunkSize = ChunkSize)) { result ->
             countCallbackInvocations.getAndIncrement()
 
-            if (result.allRetrievedMails.size % ChunkSize == 0) {
-                assertThat(result.retrievedChunk).hasSize(ChunkSize)
+            if (result.completed == false) {
+                if (result.allRetrievedMails.size % ChunkSize == 0) { // last chunk may has a chunk size < ChunkSize
+                    assertThat(result.retrievedChunk).hasSize(ChunkSize)
+                }
+                else { // to find if retrievedChunk never has ChunkSize
+                    assertThat(previousChunkSize).isEqualTo(ChunkSize)
+                }
+
+                previousChunkSize = result.retrievedChunk.size
             }
             else {
-                if (result.completed) {
-                    retrievedMails.set(result.allRetrievedMails)
+                retrievedMails.set(result.allRetrievedMails)
 
-                    countDownLatch.countDown()
-                }
+                countDownLatch.countDown()
             }
         }
 
@@ -483,7 +495,7 @@ class EmailFetcherTest {
         underTest.fetchMailsAsync(createFetchEmailOptions(retrieveMessageIds = true, retrievePlainTextBodies = true,
             retrieveHtmlBodies = true, downloadAttachments = true, chunkSize = chunkSize)) { result ->
 
-            chunkStopwatch.stopAndLog("Retrieving chunk of $chunkSize mails", log)
+            chunkStopwatch.stopAndLog("Retrieving chunk of ${result.retrievedChunk.size} mails", log)
             chunkStopwatch = Stopwatch()
 
             if (result.completed) {
