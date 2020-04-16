@@ -5,10 +5,15 @@ import net.dankito.mail.model.CheckCredentialsResult
 import net.dankito.mail.model.Email
 import net.dankito.mail.model.FetchEmailOptions
 import net.dankito.mail.model.MailAccount
+import net.dankito.utils.Stopwatch
 import net.dankito.utils.ThreadPool
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -36,6 +41,8 @@ class EmailFetcherTest {
         private val MessageIdsToFetch = listOf<Long>(2, 3, 4, 5, 6) // specify 5 message ids to also test chunkSize
 
         private const val ShowJavaMailDebugLogOutput = false
+
+        private val log = LoggerFactory.getLogger(EmailFetcherTest::class.java)
     }
 
 
@@ -453,6 +460,45 @@ class EmailFetcherTest {
             assertThat(mail.body).isNull()
             assertThat(mail.contentType).isNotNull()
         }
+    }
+
+
+    @Disabled
+    @ParameterizedTest
+    @ValueSource(ints = [ 1, 10, 25, 50, 100 ] )
+    @Tag("Measure Chunk Size Performance")
+    fun bestChunkSizeDetection_FetchCompleteMailsInChunksOf(chunkSize: Int) {
+
+        // given
+
+        val retrievedMails = AtomicReference<List<Email>>(null)
+        val countDownLatch = CountDownLatch(1)
+
+        val overallStopwatch = Stopwatch()
+        var chunkStopwatch = Stopwatch()
+
+
+        // when
+
+        underTest.fetchMailsAsync(createFetchEmailOptions(retrieveMessageIds = true, retrievePlainTextBodies = true,
+            retrieveHtmlBodies = true, downloadAttachments = true, chunkSize = chunkSize)) { result ->
+
+            chunkStopwatch.stopAndLog("Retrieving chunk of $chunkSize mails", log)
+            chunkStopwatch = Stopwatch()
+
+            if (result.completed) {
+                retrievedMails.set(result.allRetrievedMails)
+
+                countDownLatch.countDown()
+            }
+        }
+
+        try { countDownLatch.await(15, TimeUnit.MINUTES) } catch (ignored: Exception) { }
+
+
+        // then
+
+        overallStopwatch.stopAndLog("Retrieving ${retrievedMails.get()?.size} in chunks of $chunkSize", log)
     }
 
 
