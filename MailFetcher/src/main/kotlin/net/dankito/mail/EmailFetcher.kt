@@ -121,6 +121,41 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
 
+    protected open fun connectAndOpenFolder(account: MailAccount, folder: String, showDebugOutputOnConsole: Boolean): ConnectAndOpenFolderResult {
+        try {
+            val connectResult = connect(account, showDebugOutputOnConsole)
+
+            if (connectResult.error != null) {
+                return ConnectAndOpenFolderResult(connectResult.error, ConnectAndOpenFolderResultErrorType.CouldNotConnect)
+            }
+            else if (connectResult.store == null) { // should actually never be the case when error == null
+                return ConnectAndOpenFolderResult(Exception("Could not open store"), ConnectAndOpenFolderResultErrorType.CouldNotOpenStore)
+            }
+
+            val store = connectResult.store
+            val defaultFolder = store.defaultFolder
+            val folders = defaultFolder.list()
+
+            val folder = folders.firstOrNull { it.name.contains(folder, true) } // TODO: in this way only top level folders are supported
+
+            if (folder == null) {
+                val errorMessage = "Could not find inbox in IMAP folders ${folders.map { it.name }}"
+                log.error(errorMessage)
+                return ConnectAndOpenFolderResult(Exception(errorMessage), ConnectAndOpenFolderResultErrorType.FolderDoesNotExist)
+            }
+
+            if (folder.isOpen == false) {
+                folder.open(Folder.READ_ONLY)
+            }
+
+            return ConnectAndOpenFolderResult(store, folder)
+        } catch (e: Exception) {
+            log.error("Could not open folder $folder", e)
+            return ConnectAndOpenFolderResult(e, ConnectAndOpenFolderResultErrorType.ExceptionOccurred)
+        }
+    }
+
+
     open fun fetchMailsAsync(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
         threadPool.runAsync {
             try {
@@ -133,42 +168,23 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
     open fun fetchMails(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
-        val connectResult = connect(options.account, options.showDebugOutputOnConsole)
+        val connectResult = connectAndOpenFolder(options.account, options.folder, options.showDebugOutputOnConsole)
 
         if (connectResult.error != null) {
             callback(FetchEmailsResult(connectResult.error))
         }
-        else if (connectResult.store != null) {
-            fetchMails(options, connectResult.store, callback)
-        }
-        else {
+        else if (connectResult.store == null || connectResult.folder == null) {
             callback(FetchEmailsResult(Exception("Unknown error"))) // should never come to this
         }
-    }
 
-    protected open fun fetchMails(options: FetchEmailOptions, store: Store, callback: (FetchEmailsResult) -> Unit) {
-        val defaultFolder = store.defaultFolder
-        val folders = defaultFolder.list()
+        val folder = connectResult.folder!!
 
-        val inbox = folders.firstOrNull { it.name.contains("inbox", true) }
-
-        if (inbox == null) {
-            val errorMessage = "Could not find inbox in IMAP folders ${folders.map { it.name }}"
-            log.error(errorMessage)
-            callback(FetchEmailsResult(Exception(errorMessage)))
-            return
-        }
-
-        if (inbox.isOpen == false) {
-            inbox.open(Folder.READ_ONLY)
-        }
-
-        var mails = retrieveMails(inbox, options, callback)
+        var mails = retrieveMails(folder, options, callback)
 
         try {
-            inbox.close()
+            folder.close()
 
-            store.close()
+            connectResult.store?.close()
         } catch (e: Exception) {
             log.error("Could not close inbox or store", e)
         }

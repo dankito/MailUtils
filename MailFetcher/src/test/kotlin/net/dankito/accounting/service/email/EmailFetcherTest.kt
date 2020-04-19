@@ -523,7 +523,7 @@ class EmailFetcherTest {
         val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
 
         return FetchEmailOptions(account, retrieveAllMessagesFromThisMessageIdOn, retrieveOnlyMessagesWithTheseIds, retrieveMessageIds,
-            retrievePlainTextBodies, retrieveHtmlBodies, retrieveAttachmentInfos, downloadAttachments, chunkSize, ShowJavaMailDebugLogOutput)
+            retrievePlainTextBodies, retrieveHtmlBodies, retrieveAttachmentInfos, downloadAttachments, chunkSize, "inbox", ShowJavaMailDebugLogOutput)
     }
 
 }

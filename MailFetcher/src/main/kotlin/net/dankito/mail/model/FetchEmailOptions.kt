@@ -25,6 +25,7 @@ class FetchEmailOptions(
      * Is currently ignored if [retrieveAllMessagesFromThisMessageIdOn] or [retrieveOnlyMessagesWithTheseIds] is set.
      */
     val chunkSize: Int = -1,
+    val folder: String = "inbox",
     /**
      * If set to true debug messages get printed to console.
      * Otherwise no messages at all get printed
