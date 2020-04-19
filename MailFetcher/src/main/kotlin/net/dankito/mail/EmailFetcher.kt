@@ -4,6 +4,10 @@ import com.sun.mail.imap.IMAPFolder
 import com.sun.mail.imap.IMAPMessage
 import com.sun.mail.imap.protocol.BODYSTRUCTURE
 import com.sun.mail.util.MailConnectException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import net.dankito.mail.model.*
 import net.dankito.utils.IThreadPool
 import net.dankito.utils.ThreadPool
@@ -13,6 +17,9 @@ import java.net.ConnectException
 import java.net.UnknownHostException
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import javax.mail.*
 import javax.mail.event.MessageChangedEvent
 import javax.mail.event.MessageChangedListener
@@ -20,6 +27,7 @@ import javax.mail.event.MessageCountEvent
 import javax.mail.event.MessageCountListener
 import javax.mail.internet.MimeMessage
 import javax.mail.internet.MimeMultipart
+import kotlin.collections.HashSet
 import kotlin.concurrent.thread
 
 
@@ -173,6 +181,24 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
                 callback(FetchEmailsResult(Exception("Could not fetch mails", e)))
             }
         }
+    }
+
+    /**
+     * Be aware that this method blocks the thread. Depending on how many messages should be retrieved this can take
+     * a very long time.
+     */
+    open fun fetchMailsBlocking(options: FetchEmailOptions): FetchEmailsResult {
+        val result = AtomicReference<FetchEmailsResult>()
+        val countDownLatch = CountDownLatch(1)
+
+        fetchMails(options) { fetchEmailsResult ->
+            result.set(fetchEmailsResult)
+            countDownLatch.countDown()
+        }
+
+        try { countDownLatch.await() } catch (e: Exception) { }
+
+        return result.get()
     }
 
     open fun fetchMails(options: FetchEmailOptions, callback: (FetchEmailsResult) -> Unit) {
@@ -525,8 +551,8 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
 
 
     /**
-     * Be aware for deleted messages [Email] object in call to listener is null as we don't get any information about
-     * the deleted mail, not even its messageId.
+     * Be aware when messages get deleted we don't get any information about the deleted mails, not even its messageId.
+     * We are trying our best to find out which messages got deleted, but we cannot guarantee that this works in all cases.
      */
     open fun addMessageListener(options: MessageChangedListenerOptions, listener: net.dankito.mail.model.MessageChangedListener) {
         addMessageListener(options) { type, mail ->
@@ -535,10 +561,10 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
     }
 
     /**
-     * Be aware for deleted messages [Email] object in call to listener is null as we don't get any information about
-     * the deleted mail, not even its messageId.
+     * Be aware when messages get deleted we don't get any information about the deleted mails, not even its messageId.
+     * We are trying our best to find out which messages got deleted, but we cannot guarantee that this works in all cases.
      */
-    open fun addMessageListener(options: MessageChangedListenerOptions, listener: (MessageChangeType, Email?) -> Unit): IMessageChangeWatch? {
+    open fun addMessageListener(options: MessageChangedListenerOptions, listener: (MessageChangeType, Email) -> Unit): IMessageChangeWatch? {
         val connectResult = connectAndOpenFolder(options.account, options.folder, options.showDebugOutputOnConsole)
 
         if (connectResult.error != null) {
@@ -552,8 +578,19 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         return null
     }
 
-    private fun addMessageListener(options: MessageChangedListenerOptions, listener: (MessageChangeType, Email?) -> Unit, folder: Folder): MessageChangeWatch {
-        val fetchEmailOptions = FetchEmailOptions(
+    protected open fun addMessageListener(options: MessageChangedListenerOptions, listener: (MessageChangeType, Email) -> Unit, folder: Folder): MessageChangeWatch {
+        // i found no other way to detect which message(s) got deleted then keeping a list with all messages in folder
+        val currentMessagesInFolder = ConcurrentHashMap<Long, Email>()
+        val haveCurrentMessagesInFolderAlreadyBeenRetrieved = AtomicBoolean(false)
+        val fetchRemovedMailsOptions = FetchEmailOptions(options.account, retrieveMessageIds = true, folder = options.folder) // TODO: also fetch attachment infos?
+        fetchMailsAsync(fetchRemovedMailsOptions) { result ->
+            result.allRetrievedMails.forEach { currentMail ->
+                currentMessagesInFolder.put(currentMail.messageId ?: -1, currentMail)
+            }
+            haveCurrentMessagesInFolderAlreadyBeenRetrieved.set(true)
+        }
+
+        val fetchAddedMailsOptions = FetchEmailOptions(
             options.account, retrieveMessageIds = true, retrievePlainTextBodies = true,
             retrieveHtmlBodies = true, downloadAttachments = true
         )
@@ -563,18 +600,15 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
             override fun messagesAdded(event: MessageCountEvent?) {
                 event?.let {
                     event.messages.forEach { message ->
-                        listener(MessageChangeType.Added, mapEmail(folder, fetchEmailOptions, message))
+                        val newMail = mapEmail(folder, fetchAddedMailsOptions, message)
+                        currentMessagesInFolder.put(newMail.messageId ?: -1, newMail)
+                        listener(MessageChangeType.Added, newMail)
                     }
                 }
             }
 
             override fun messagesRemoved(event: MessageCountEvent?) {
-                event?.let {
-                    event.messages.forEach { message ->
-                        // for deleted mails no information can be retrieved
-                        listener(MessageChangeType.Deleted, null)
-                    }
-                }
+                findDeletedMessagesAndCallListener(currentMessagesInFolder, haveCurrentMessagesInFolderAlreadyBeenRetrieved, fetchRemovedMailsOptions, listener)
             }
 
         }
@@ -583,7 +617,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
 
         val messageChangedListener = MessageChangedListener { event ->
             if (event.messageChangeType != MessageChangedEvent.FLAGS_CHANGED) {
-                listener(MessageChangeType.Modified, mapEmail(folder, fetchEmailOptions, event.message))
+                listener(MessageChangeType.Modified, mapEmail(folder, fetchAddedMailsOptions, event.message))
             }
         }
         folder.addMessageChangedListener(messageChangedListener)
@@ -597,7 +631,7 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         return watch
     }
 
-    private fun keepMessageChangedListenersAlive(folder: Folder, watch: IMessageChangeWatch) {
+    protected open fun keepMessageChangedListenersAlive(folder: Folder, watch: IMessageChangeWatch) {
         (folder as? IMAPFolder)?.let { imapFolder ->
             thread {
                 try {
@@ -624,6 +658,34 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
                 watch.folder.store.close()
             }
         }
+    }
+
+
+    protected open fun findDeletedMessagesAndCallListener(previousMessagesInFolder: MutableMap<Long, Email>, haveCurrentMessagesInFolderAlreadyBeenRetrieved: AtomicBoolean,
+                                                          fetchRemovedMailsOptions: FetchEmailOptions, listener: (MessageChangeType, Email) -> Unit) {
+        GlobalScope.launch(Dispatchers.IO) {
+            while (haveCurrentMessagesInFolderAlreadyBeenRetrieved.get() == false) {
+                delay(250)
+            }
+
+            findDeletedMessages(previousMessagesInFolder, fetchRemovedMailsOptions).forEach { deletedMessage ->
+                listener(MessageChangeType.Deleted, deletedMessage)
+            }
+        }
+    }
+
+    protected open suspend fun findDeletedMessages(previousMessagesInFolder: MutableMap<Long, Email>, fetchRemovedMailsOptions: FetchEmailOptions): List<Email> {
+        val fetchResult = fetchMailsBlocking(fetchRemovedMailsOptions)
+
+        val deletedMessagesIds = HashSet(previousMessagesInFolder.keys) // make a copy
+        val currentMessageIds = fetchResult.allRetrievedMails.map { it.messageId ?: -1 }
+
+        deletedMessagesIds.removeAll(currentMessageIds)
+
+        return deletedMessagesIds.mapNotNull { id ->
+            previousMessagesInFolder.remove(id)
+        }
+
     }
 
 }
