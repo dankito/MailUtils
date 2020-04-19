@@ -343,11 +343,14 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
             val chunk = IntRange(0, options.chunkSize - 1).mapNotNull { indexInChunk ->
                 val nextMessageIndex = chunkIndex * options.chunkSize + indexInChunk
                 if (nextMessageIndex < messages.size) {
-                    mapEmail(folder, options, messages[nextMessageIndex])
+                    try {
+                        return@mapNotNull mapEmail(folder, options, messages[nextMessageIndex])
+                    } catch (e: Exception) {
+                        log.error("Could not map message ${messages[nextMessageIndex]} to Email", e)
+                    }
                 }
-                else {
-                    null
-                }
+
+                null
             }
 
             allMails.addAll(chunk)
