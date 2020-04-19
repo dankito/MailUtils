@@ -1,10 +1,7 @@
 package net.dankito.accounting.service.email
 
 import net.dankito.mail.EmailFetcher
-import net.dankito.mail.model.CheckCredentialsResult
-import net.dankito.mail.model.Email
-import net.dankito.mail.model.FetchEmailOptions
-import net.dankito.mail.model.MailAccount
+import net.dankito.mail.model.*
 import net.dankito.utils.Stopwatch
 import net.dankito.utils.ThreadPool
 import org.assertj.core.api.Assertions.assertThat
@@ -105,7 +102,7 @@ class EmailFetcherTest {
     fun connect_CredentialsAreCorrect() {
 
         // given
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
+        val account = createMailAccount()
 
         // when
         val result = underTest.checkAreCredentialsCorrect(account)
@@ -119,7 +116,7 @@ class EmailFetcherTest {
     fun getMailFolders() {
 
         // given
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
+        val account = createMailAccount()
 
         // when
         val result = underTest.getMailFolders(account)
@@ -513,6 +510,35 @@ class EmailFetcherTest {
         overallStopwatch.stopAndLog("Retrieving ${retrievedMails.get()?.size} in chunks of $chunkSize", log)
     }
 
+    @Disabled // a manual test - you have to send, modify or delete a message on you own - to see if  is working
+    @Test
+    fun addMessageListener() {
+
+        // given
+
+        val retrievedMessageChanged = AtomicReference<Pair<MessageChangeType, Email?>>(null)
+        val countDownLatch = CountDownLatch(1)
+
+
+        // when
+
+        val watch = underTest.addMessageListener(MessageChangedListenerOptions(createMailAccount())) { type, mail ->
+            retrievedMessageChanged.set(Pair(type, mail))
+
+            countDownLatch.countDown()
+        }
+
+        try { countDownLatch.await(1, TimeUnit.MINUTES) } catch (ignored: Exception) { }
+
+
+        // then
+
+        assertThat(watch).isNotNull
+        assertThat(retrievedMessageChanged.get()).isNotNull
+
+        underTest.removeMessageListener(watch!!) // may not throw an exception; if listeners really got removed and folder closed has to be tested manually
+    }
+
 
     private fun createFetchEmailOptions(retrieveAllMessagesFromThisMessageIdOn: Long? = null,
                                         retrieveOnlyMessagesWithTheseIds: List<Long>? = null,
@@ -520,10 +546,14 @@ class EmailFetcherTest {
                                         retrieveHtmlBodies: Boolean = false, retrieveAttachmentInfos: Boolean = false,
                                         downloadAttachments: Boolean = false, chunkSize: Int = -1): FetchEmailOptions {
 
-        val account = MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
+        val account = createMailAccount()
 
         return FetchEmailOptions(account, retrieveAllMessagesFromThisMessageIdOn, retrieveOnlyMessagesWithTheseIds, retrieveMessageIds,
             retrievePlainTextBodies, retrieveHtmlBodies, retrieveAttachmentInfos, downloadAttachments, chunkSize, "inbox", ShowJavaMailDebugLogOutput)
+    }
+
+    private fun createMailAccount(): MailAccount {
+        return MailAccount(MailAccountUsername, MailAccountPassword, MailAccountImapServerAddress, MailAccountImapServerPort)
     }
 
 }

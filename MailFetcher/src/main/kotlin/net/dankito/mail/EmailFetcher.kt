@@ -12,9 +12,15 @@ import org.slf4j.LoggerFactory
 import java.net.ConnectException
 import java.net.UnknownHostException
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import javax.mail.*
+import javax.mail.event.MessageChangedEvent
+import javax.mail.event.MessageChangedListener
+import javax.mail.event.MessageCountEvent
+import javax.mail.event.MessageCountListener
 import javax.mail.internet.MimeMessage
 import javax.mail.internet.MimeMultipart
+import kotlin.concurrent.thread
 
 
 open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThreadPool = ThreadPool()) {
@@ -25,6 +31,8 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         private val log = LoggerFactory.getLogger(EmailFetcher::class.java)
     }
 
+
+    protected val messageListeners = ConcurrentHashMap<MessageChangeWatch, Pair<MessageCountListener, MessageChangedListener>>()
 
     protected val exceptionHelper = ExceptionHelper()
 
@@ -510,6 +518,109 @@ open class EmailFetcher @JvmOverloads constructor(protected val threadPool: IThr
         }
 
         return contentType.toLowerCase()
+    }
+
+
+    /**
+     * Be aware for deleted messages [Email] object in call to listener is null as we don't get any information about
+     * the deleted mail, not even its messageId.
+     */
+    open fun addMessageListener(options: MessageChangedListenerOptions, listener: net.dankito.mail.model.MessageChangedListener) {
+        addMessageListener(options) { type, mail ->
+            listener.messageChanged(type, mail)
+        }
+    }
+
+    /**
+     * Be aware for deleted messages [Email] object in call to listener is null as we don't get any information about
+     * the deleted mail, not even its messageId.
+     */
+    open fun addMessageListener(options: MessageChangedListenerOptions, listener: (MessageChangeType, Email?) -> Unit): IMessageChangeWatch? {
+        val connectResult = connectAndOpenFolder(options.account, options.folder, options.showDebugOutputOnConsole)
+
+        if (connectResult.error != null) {
+            return null
+        }
+
+        connectResult.folder?.let { folder ->
+            return addMessageListener(options, listener, folder)
+        }
+
+        return null
+    }
+
+    private fun addMessageListener(options: MessageChangedListenerOptions, listener: (MessageChangeType, Email?) -> Unit, folder: Folder): MessageChangeWatch {
+        val fetchEmailOptions = FetchEmailOptions(
+            options.account, retrieveMessageIds = true, retrievePlainTextBodies = true,
+            retrieveHtmlBodies = true, downloadAttachments = true
+        )
+
+        val messageCountListener = object : MessageCountListener {
+
+            override fun messagesAdded(event: MessageCountEvent?) {
+                event?.let {
+                    event.messages.forEach { message ->
+                        listener(MessageChangeType.Added, mapEmail(folder, fetchEmailOptions, message))
+                    }
+                }
+            }
+
+            override fun messagesRemoved(event: MessageCountEvent?) {
+                event?.let {
+                    event.messages.forEach { message ->
+                        // for deleted mails no information can be retrieved
+                        listener(MessageChangeType.Deleted, null)
+                    }
+                }
+            }
+
+        }
+        folder.addMessageCountListener(messageCountListener)
+
+
+        val messageChangedListener = MessageChangedListener { event ->
+            if (event.messageChangeType != MessageChangedEvent.FLAGS_CHANGED) {
+                listener(MessageChangeType.Modified, mapEmail(folder, fetchEmailOptions, event.message))
+            }
+        }
+        folder.addMessageChangedListener(messageChangedListener)
+
+
+        val watch = MessageChangeWatch(options.account, folder)
+        messageListeners.put(watch, Pair(messageCountListener, messageChangedListener))
+
+        keepMessageChangedListenersAlive(folder, watch)
+
+        return watch
+    }
+
+    private fun keepMessageChangedListenersAlive(folder: Folder, watch: IMessageChangeWatch) {
+        (folder as? IMAPFolder)?.let { imapFolder ->
+            thread {
+                try {
+                    // see https://github.com/javaee/javamail/blob/master/demo/src/main/java/monitor.java
+                    while (messageListeners.containsKey(watch)) {
+                        imapFolder.idle() // we periodically need to call idle() to keep listeners alive (for POP periodically folder.getMessageCount() has to be called)
+                    }
+                } catch (e: Exception) {
+                    log.error("Error occurred while watching folder $folder", e)
+                }
+            }
+        }
+    }
+
+
+    open fun removeMessageListener(watch: IMessageChangeWatch) {
+        (watch as? MessageChangeWatch)?.let {
+            messageListeners.remove(watch)?.let { listeners ->
+                watch.folder.removeMessageCountListener(listeners.first)
+
+                watch.folder.removeMessageChangedListener(listeners.second)
+
+                watch.folder.close()
+                watch.folder.store.close()
+            }
+        }
     }
 
 }
